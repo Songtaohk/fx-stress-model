@@ -1,0 +1,108 @@
+{
+  "generatedAt": "2026-05-25T17:28:09.455226+00:00",
+  "changes": [
+    {
+      "metric": "fdiGdp",
+      "economy": "cn",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 0.3934,
+      "source": "SAFE 2025 BOP Direct Investment USD 77.2bn, converted to assets-minus-liabilities direction / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "portfolioGdp",
+      "economy": "cn",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 2.1685,
+      "source": "SAFE 2025 BOP Portfolio Investment USD 425.6bn, converted to assets-minus-liabilities direction / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "fdiGdp",
+      "economy": "kr",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 1.358,
+      "source": "BOK 2025 Financial and Capital Account Direct investment USD 25.4265bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "portfolioGdp",
+      "economy": "kr",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 4.6857,
+      "source": "BOK 2025 Financial and Capital Account Portfolio investment USD 87.7345bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "fdiGdp",
+      "economy": "in",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": -0.0868,
+      "source": "RBI BOP calendar-year stitch: Jan-Mar 2025 net FDI inflow USD 0.4bn plus Apr-Dec 2025 net FDI inflow USD 3.0bn; model direction assets-minus-liabilities = -3.4bn / IMF WEO 2025 GDP. Provisional, refresh remains from 2025."
+    },
+    {
+      "metric": "portfolioGdp",
+      "economy": "in",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 0.2604,
+      "source": "RBI BOP calendar-year stitch: Jan-Mar 2025 FPI outflow USD 5.9bn plus Apr-Dec 2025 FPI outflow USD 4.3bn; model direction assets-minus-liabilities = +10.2bn / IMF WEO 2025 GDP. Provisional, refresh remains from 2025."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "cn",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 11.9,
+      "source": "SAFE 2025 year-end external debt / GDP."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "us",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 95.7135,
+      "source": "World Bank QEDS 2025Q4 gross external debt USD 29,448.233bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "gb",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 276.336,
+      "source": "World Bank QEDS 2025Q4 gross external debt USD 11,061.792bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "jp",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 104.7017,
+      "source": "World Bank QEDS 2025Q4 gross external debt USD 4,643.692bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "kr",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 40.9569,
+      "source": "World Bank QEDS 2025Q4 gross external debt USD 766.8665bn / IMF WEO 2025 GDP."
+    },
+    {
+      "metric": "externalDebtGdp",
+      "economy": "in",
+      "year": "2025",
+      "oldValue": null,
+      "newValue": 20.4,
+      "source": "India DEA/RBI 2025 end-December external debt report, external debt / GDP."
+    }
+  ],
+  "policy": {
+    "scope": "Writes only official 2025 values that have been verified or explicitly stitched from official quarterly releases. India FDI/Portfolio 2025 remains refreshable from 2025 because it is a provisional calendar-year stitch.",
+    "notWritten": [
+      "EA values not filled unless Eurostat/ECB/WDI aggregate is available or approved.",
+      "India Jan-Mar 2026 is not needed for calendar-year 2025 and is not yet released as of 2026-05-26."
+    ]
+  }
+}

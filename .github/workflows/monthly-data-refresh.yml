@@ -1,0 +1,33 @@
+name: Monthly FX Stress Data Refresh
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 2 5 * *"
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm install
+      - run: npm run data:refresh
+        env:
+          FRED_API_KEY: ${{ secrets.FRED_API_KEY }}
+      - run: npm test
+      - run: npm run build
+      - name: Commit refreshed data
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add src/data/stressModel.ts data/Fx_Stress_Model_Data_v3.json data/fx-history.json data/recent-update-log.json
+            git commit -m "Refresh recent FX stress data"
+            git push
+          fi
