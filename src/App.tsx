@@ -12,7 +12,6 @@ import {
   stressGroupLabels,
   stressLayers,
   stressMetricMeta,
-  stressPairComparisons,
   stressPairGroups,
   stressPairLabels,
   stressYears,
@@ -53,7 +52,7 @@ type MetricDoc = { meaning: Record<Language, string>; formula: string; sources: 
 const layerOrder: StressLayerKey[] = ["external", "monetary", "productivity", "capital", "demographics", "financial"];
 const economyOrder: StressEconomyKey[] = ["eu", "gb", "us", "cn", "jp", "tw", "kr", "in"];
 const groupOrder: StressGroupKey[] = ["eur", "gbp", "usd", "cny", "jpy", "twd", "krw"];
-const chartYears = [...stressYears, "2026"];
+const chartYears = [...stressYears];
 
 const copy = {
   zh: {
@@ -660,9 +659,13 @@ function pairMetricName(metric: StressMetricKey, language: Language, mode: ViewM
 }
 
 function pairMetricSeries(metric: StressMetricKey, pair: StressPairKey): StressValue[] {
-  if (!usesLogSpread(metric)) return [...stressPairComparisons[metric][pair]];
   const { base, quote } = stressPairLabels[pair];
-  return logSpreadSeries(stressData[metric][base], stressData[metric][quote]);
+  if (usesLogSpread(metric)) return logSpreadSeries(stressData[metric][base], stressData[metric][quote]);
+  return stressData[metric][base].map((baseValue, index) => {
+    const quoteValue = stressData[metric][quote][index];
+    if (baseValue === null || quoteValue === null) return null;
+    return Number((baseValue - quoteValue).toFixed(4));
+  });
 }
 
 function chartPairDirectionLabel(pair: StressPairKey, language: Language) {
@@ -963,7 +966,7 @@ function App() {
     if (viewMode === "single") {
       const allYears = chartYears;
       const windowIndexes = chartWindowIndexes(allYears, chartWindowStart);
-      const rawSeries = metrics.map((metric) => [...stressData[metric][economy], null]);
+      const rawSeries = metrics.map((metric) => alignSeries(stressYears, stressData[metric][economy], allYears));
       const displaySeries = rawSeries.map((values) => (scaleMode === "zscore" ? zScoreSeries(values) : values));
       const windowedDisplaySeries = displaySeries.map((values) => windowIndexes.map((index) => values[index] ?? null));
       const rightAxisIndexes = splitRightAxisIndexes(windowedDisplaySeries);

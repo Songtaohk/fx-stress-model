@@ -30,8 +30,22 @@ describe("FX stress model data", () => {
   });
 
   it("keeps generated series aligned to the declared year ranges", () => {
+    expect(new Set(stressYears).size).toBe(stressYears.length);
+    expect(new Set(stressFxYears).size).toBe(stressFxYears.length);
     for (const metricData of Object.values(stressData)) for (const series of Object.values(metricData)) expect(series).toHaveLength(stressYears.length);
     for (const metricData of Object.values(stressPairComparisons)) for (const series of Object.values(metricData)) expect(series).toHaveLength(stressYears.length);
     for (const series of Object.values(stressFxData)) expect(series).toHaveLength(stressFxYears.length);
+  });
+
+  it("exposes confirmed 2025 updates to chart source data and pair spreads", () => {
+    const yearIndex = stressYears.indexOf("2025");
+    expect(yearIndex).toBeGreaterThanOrEqual(0);
+    expect(stressData.fdiGdp.in[yearIndex]).toBe(-0.0868);
+    expect(stressData.portfolioGdp.in[yearIndex]).toBe(0.2604);
+    expect(stressData.externalDebtGdp.us[yearIndex]).toBe(95.7135);
+    expect(stressData.externalDebtGdp.jp[yearIndex]).toBe(104.7017);
+    expect(stressPairComparisons.fdiGdp.cnyinr[yearIndex]).toBe(0.4802);
+    expect(stressPairComparisons.portfolioGdp.cnyinr[yearIndex]).toBe(1.9081);
+    expect(stressPairComparisons.externalDebtGdp.usdjpy[yearIndex]).toBe(-8.9882);
   });
 });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { stressData, stressFxData, stressFxYears, stressLayers, stressPairGroups, stressPairLabels, stressYears, type StressMetricKey, type StressValue } from "../data/stressModel";
 import { alignSeries, dominantSeriesIndex, firstNonNullYear, getLayerMetrics, lastNonNullYear, logSpreadSeries, pairDirectionLabel, splitRightAxisIndexes, splitRightAxisIndexesAnchoredLeft, toCsv, zScoreSeries } from "../lib/stressUtils";
 
-const chartYears = [...stressYears, "2026"];
+const chartYears = [...stressYears];
 const allPairs = Object.values(stressPairGroups).flat();
 
 function groupedWindows(years: string[]) {
