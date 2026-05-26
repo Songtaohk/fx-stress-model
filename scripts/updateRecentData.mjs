@@ -300,6 +300,24 @@ const fixedAnnualSeries = (entries) => Object.fromEntries(entries.map((entry) =>
   { value: round4(entry.value), observations: entry.observations, lastDate: entry.lastDate },
 ]));
 
+const previewPoint = ({ metric, economy, year, annualPoint, source, status }) => ({
+  metric,
+  economy,
+  year,
+  value: annualPoint.value,
+  status,
+  observations: annualPoint.observations,
+  latestObservation: annualPoint.lastDate,
+  source,
+});
+
+const shouldPreviewPoint = ({ year, annualPoint, autoRefreshFrom, cadence }) => {
+  if (!autoRefreshFrom || !annualPoint || !isFiniteNumber(annualPoint.value)) return false;
+  if (Number(year) < Number(autoRefreshFrom)) return false;
+  if (cadence !== "high-frequency") return false;
+  return Number(annualPoint.observations) > 0;
+};
+
 const monthlyYoySeries = (entries) => annualAverageFromMonthly(entries.map(([date, value]) => ({ date, value })));
 
 const monthlyIndexAnnualYoySeries = (entries) => {
@@ -377,7 +395,7 @@ const ensureYear = (years, stressData, year) => {
   }
 };
 
-const setSeriesValues = ({ years, stressData, metric, economy, annual, source, changes, errors, cadence }) => {
+const setSeriesValues = ({ years, stressData, metric, economy, annual, source, changes, errors, previewPoints, cadence }) => {
   const values = stressData[metric][economy];
   const autoRefreshFrom = refreshStartYear({
     metric,
@@ -404,9 +422,58 @@ const setSeriesValues = ({ years, stressData, metric, economy, annual, source, c
       overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
     });
     if (autoRefreshFrom && yearNumber >= Number(autoRefreshFrom) && annualPoint) sawEligibleSourcePoint = true;
-    if (!decision.allow) continue;
+    if (!decision.allow) {
+      if (decision.reason === "insufficient-observations" && shouldPreviewPoint({ year, annualPoint, autoRefreshFrom, cadence })) {
+        previewPoints.push(previewPoint({
+          metric,
+          economy,
+          year,
+          annualPoint,
+          source,
+          status: "provisional-completed-year",
+        }));
+        if (values[index] !== null) {
+          changes.push({
+            metric,
+            economy,
+            year,
+            oldValue: values[index],
+            newValue: null,
+            source,
+            status: "moved-from-historical-to-preview",
+            autoRefreshFrom,
+          });
+          values[index] = null;
+        }
+      }
+      continue;
+    }
     const nextValue = annualPoint.value;
     if (!isFiniteNumber(nextValue)) continue;
+    if (decision.status === "rolling-current-year") {
+      previewPoints.push(previewPoint({
+        metric,
+        economy,
+        year,
+        annualPoint,
+        source,
+        status: "rolling-current-year",
+      }));
+      if (values[index] !== null) {
+        changes.push({
+          metric,
+          economy,
+          year,
+          oldValue: values[index],
+          newValue: null,
+          source,
+          status: "moved-from-historical-to-preview",
+          autoRefreshFrom: decision.autoRefreshFrom,
+        });
+        values[index] = null;
+      }
+      continue;
+    }
     const oldValue = values[index];
     if (oldValue !== nextValue) {
       values[index] = nextValue;
@@ -429,7 +496,7 @@ const setSeriesValues = ({ years, stressData, metric, economy, annual, source, c
   }
 };
 
-const recomputeRealPolicyRate = (years, stressData, policyRateAnnual, changes) => {
+const recomputeRealPolicyRate = (years, stressData, policyRateAnnual, changes, previewPoints) => {
   for (const economy of economyOrder) {
     const policyByYear = policyRateAnnual[economy] ?? {};
     const values = stressData.realPolicyRate[economy];
@@ -451,8 +518,70 @@ const recomputeRealPolicyRate = (years, stressData, policyRateAnnual, changes) =
         cadence: "high-frequency",
         overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
       });
-      if (!decision.allow || !derivedPoint) continue;
+      if (!derivedPoint) continue;
+      if (!decision.allow) {
+        const autoRefreshFrom = refreshStartYear({
+          metric: "realPolicyRate",
+          economy,
+          years,
+          values,
+          currentYear,
+          overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+        });
+        if (decision.reason === "insufficient-observations" && shouldPreviewPoint({ year, annualPoint: derivedPoint, autoRefreshFrom, cadence: "high-frequency" })) {
+          previewPoints.push(previewPoint({
+            metric: "realPolicyRate",
+            economy,
+            year,
+            annualPoint: derivedPoint,
+            source: policyPoint.source
+              ? `Derived from ${policyPoint.source} minus headline CPI annual/YTD average.`
+              : "Derived from nominal policy-rate annual/YTD average minus headline CPI annual/YTD average.",
+            status: "provisional-completed-year",
+          }));
+          if (stressData.realPolicyRate[economy][index] !== null) {
+            changes.push({
+              metric: "realPolicyRate",
+              economy,
+              year,
+              oldValue: stressData.realPolicyRate[economy][index],
+              newValue: null,
+              source: "Moved provisional real policy rate out of historical data.",
+              status: "moved-from-historical-to-preview",
+              autoRefreshFrom,
+            });
+            stressData.realPolicyRate[economy][index] = null;
+          }
+        }
+        continue;
+      }
       const nextValue = derivedPoint.value;
+      if (decision.status === "rolling-current-year") {
+        previewPoints.push(previewPoint({
+          metric: "realPolicyRate",
+          economy,
+          year,
+          annualPoint: derivedPoint,
+          source: policyPoint.source
+            ? `Derived from ${policyPoint.source} minus headline CPI annual/YTD average.`
+            : "Derived from nominal policy-rate annual/YTD average minus headline CPI annual/YTD average.",
+          status: "rolling-current-year",
+        }));
+        if (stressData.realPolicyRate[economy][index] !== null) {
+          changes.push({
+            metric: "realPolicyRate",
+            economy,
+            year,
+            oldValue: stressData.realPolicyRate[economy][index],
+            newValue: null,
+            source: "Moved rolling real policy rate out of historical data.",
+            status: "moved-from-historical-to-preview",
+            autoRefreshFrom: decision.autoRefreshFrom,
+          });
+          stressData.realPolicyRate[economy][index] = null;
+        }
+        continue;
+      }
       const oldValue = stressData.realPolicyRate[economy][index];
       if (oldValue !== nextValue) {
         stressData.realPolicyRate[economy][index] = nextValue;
@@ -565,10 +694,12 @@ const main = async () => {
   const source = fs.readFileSync(stressModelPath, "utf8");
   const years = extractConstJson(source, "stressYears", ";");
   const stressData = extractConstJson(source, "stressData", " as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue[]>>;");
+  const existingPreviewData = extractConstJson(source, "stressPreviewData", " as const satisfies StressPreviewPoint[];") ?? [];
   ensureYear(years, stressData, String(currentYear));
 
   const changes = [];
   const errors = [];
+  const previewPoints = [];
   const policyRateAnnual = {};
 
   for (const [metric, economies] of Object.entries(fredSeries)) {
@@ -578,7 +709,7 @@ const main = async () => {
         if (metric === "policyRateNominal") {
           policyRateAnnual[economy] = annual;
         } else {
-          setSeriesValues({ years, stressData, metric, economy, annual, source: `${config.source} (${config.id})`, changes, errors });
+          setSeriesValues({ years, stressData, metric, economy, annual, source: `${config.source} (${config.id})`, changes, errors, previewPoints });
         }
       } catch (error) {
         errors.push({ metric, economy, source: `${config.source} (${config.id})`, message: error.message });
@@ -589,7 +720,7 @@ const main = async () => {
   for (const [economy, config] of Object.entries(officialCpiSources)) {
     try {
       const annual = await seriesFromOfficialCpi(config);
-      setSeriesValues({ years, stressData, metric: "cpiInflation", economy, annual, source: config.source, changes, errors });
+      setSeriesValues({ years, stressData, metric: "cpiInflation", economy, annual, source: config.source, changes, errors, previewPoints });
     } catch (error) {
       errors.push({ metric: "cpiInflation", economy, source: config.source, message: error.message });
     }
@@ -609,15 +740,18 @@ const main = async () => {
   for (const [economy, config] of Object.entries(currentAccountGdpOverrides)) {
     try {
       const annual = fixedAnnualSeries(config.entries);
-      setSeriesValues({ years, stressData, metric: "caGdp", economy, annual, source: config.source, changes, errors });
+      setSeriesValues({ years, stressData, metric: "caGdp", economy, annual, source: config.source, changes, errors, previewPoints });
     } catch (error) {
       errors.push({ metric: "caGdp", economy, source: config.source, message: error.message });
     }
   }
 
-  recomputeRealPolicyRate(years, stressData, policyRateAnnual, changes);
+  recomputeRealPolicyRate(years, stressData, policyRateAnnual, changes, previewPoints);
   recomputeRealPolicyRateZ(years, stressData, changes);
   const stressPairComparisons = recomputePairComparisons(stressData);
+  const sortedPreviewPoints = previewPoints
+    .sort((a, b) => `${a.metric}:${a.economy}:${a.year}`.localeCompare(`${b.metric}:${b.economy}:${b.year}`));
+  const previewChanged = JSON.stringify(existingPreviewData) !== JSON.stringify(sortedPreviewPoints);
 
   const ingestionMatrix = buildIngestionMatrix({
     years,
@@ -639,10 +773,11 @@ const main = async () => {
       realPolicyRateZ: "Stored Z-score values are refreshed only for eligible years; archived Z-score snapshots are not automatically rewritten.",
     },
   });
+  log.previewData = sortedPreviewPoints;
   fs.writeFileSync(updateLogPath, `${JSON.stringify(log, null, 2)}\n`);
   fs.writeFileSync(ingestionPolicyLogPath, `${JSON.stringify(log, null, 2)}\n`);
 
-  if (changes.length === 0) {
+  if (changes.length === 0 && !previewChanged) {
     console.log(JSON.stringify({
       updatedStressModel: false,
       changes: 0,
@@ -654,9 +789,10 @@ const main = async () => {
 
   let next = source;
   next = replaceConst(next, "stressYears", ";", `${JSON.stringify(years)};`);
+  next = replaceConst(next, "stressPreviewData", " as const satisfies StressPreviewPoint\\[\\];", `${JSON.stringify(sortedPreviewPoints)} as const satisfies StressPreviewPoint[];`);
   next = replaceConst(next, "stressData", " as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue\\[\\]>>;", `${JSON.stringify(stressData)} as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue[]>>;`);
   next = replaceConst(next, "stressPairComparisons", " as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue\\[\\]>>;", `${JSON.stringify(stressPairComparisons)} as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue[]>>;`);
-  if (changes.length > 0) {
+  if (changes.length > 0 || previewChanged) {
     next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
   }
   fs.writeFileSync(stressModelPath, next);

@@ -36,18 +36,31 @@ describe("ingestion policy layer", () => {
   it("rejects incomplete completed-year high-frequency observations", () => {
     const years = ["2024", "2025", "2026"];
     const values = [1, null, null];
-    const decision = writeDecision({
+    const tenMonthDecision = writeDecision({
       metric: "nominal10yYield",
       economy: "jp",
       year: "2025",
-      annualPoint: { value: 1.1, observations: 9 },
+      annualPoint: { value: 1.1, observations: 10 },
       years,
       values,
       currentYear: 2026,
       cadence: "high-frequency",
     });
-    expect(decision.allow).toBe(false);
-    expect(decision.reason).toBe("insufficient-observations");
+    expect(tenMonthDecision.allow).toBe(false);
+    expect(tenMonthDecision.reason).toBe("insufficient-observations");
+
+    const completeDecision = writeDecision({
+      metric: "nominal10yYield",
+      economy: "jp",
+      year: "2025",
+      annualPoint: { value: 1.2, observations: 12 },
+      years,
+      values,
+      currentYear: 2026,
+      cadence: "high-frequency",
+    });
+    expect(completeDecision.allow).toBe(true);
+    expect(completeDecision.status).toBe("finalized-high-frequency-year");
   });
 
   it("produces a traceable matrix row for every metric/economy combination", () => {

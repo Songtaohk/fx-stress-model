@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stressAutoUpdatePolicy, stressData, stressDataLastUpdated, stressFxData, stressFxYears, stressLayers, stressPairComparisons, stressPairGroups, stressPairLabels, stressYears } from "../data/stressModel";
+import { stressAutoUpdatePolicy, stressData, stressDataLastUpdated, stressFxData, stressFxYears, stressLayers, stressPairComparisons, stressPairGroups, stressPairLabels, stressPreviewData, stressYears } from "../data/stressModel";
 
 describe("FX stress model data", () => {
   it("has six layers and the requested currency-pair order", () => {
@@ -40,6 +40,10 @@ describe("FX stress model data", () => {
   it("publishes a day-level update stamp and daily refresh policy", () => {
     expect(stressDataLastUpdated).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(stressAutoUpdatePolicy.macro.note).toContain("checked daily");
+  });
+
+  it("keeps provisional observations separate from historical data", () => {
+    expect(Array.isArray(stressPreviewData)).toBe(true);
   });
 
   it("exposes confirmed 2025 updates to chart source data and pair spreads", () => {

@@ -14,12 +14,14 @@ import {
   stressMetricMeta,
   stressPairGroups,
   stressPairLabels,
+  stressPreviewData,
   stressYears,
   type StressEconomyKey,
   type StressGroupKey,
   type StressLayerKey,
   type StressMetricKey,
   type StressPairKey,
+  type StressPreviewPoint,
   type StressValue,
 } from "./data/stressModel";
 import {
@@ -45,7 +47,7 @@ type PaymentCurrency = "RMB" | "HKD" | "USD";
 type PaymentMethod = "alipay_hk" | "alipay_cn" | "zelle";
 type ChartWindowStart = "all" | string;
 
-type ChartLine = { name: string; values: StressValue[]; yAxisIndex?: number; unit?: string; smooth?: boolean };
+type ChartLine = { name: string; values: StressValue[]; yAxisIndex?: number; unit?: string; smooth?: boolean; dashed?: boolean; showSymbol?: boolean };
 type SourceLink = { label: string; url: string };
 type MetricDoc = { meaning: Record<Language, string>; formula: string; sources: SourceLink[]; limitation?: Record<Language, string> };
 
@@ -53,6 +55,7 @@ const layerOrder: StressLayerKey[] = ["external", "monetary", "productivity", "c
 const economyOrder: StressEconomyKey[] = ["eu", "gb", "us", "cn", "jp", "tw", "kr", "in"];
 const groupOrder: StressGroupKey[] = ["eur", "gbp", "usd", "cny", "jpy", "twd", "krw"];
 const chartYears = [...stressYears];
+const previewData = stressPreviewData as readonly StressPreviewPoint[];
 
 const copy = {
   zh: {
@@ -607,6 +610,57 @@ function cutoffYearForMetricEconomy(metric: StressMetricKey, economy: StressEcon
   return lastValueYear(stressYears, stressData[metric][economy], currentYearCap);
 }
 
+function historicalMetricSeries(metric: StressMetricKey, selectedEconomy: StressEconomyKey) {
+  const cutoff = cutoffYearForMetricEconomy(metric, selectedEconomy);
+  return stressData[metric][selectedEconomy].map((value, index) => (
+    cutoff && Number(stressYears[index]) <= Number(cutoff) ? value : null
+  ));
+}
+
+function previewMetricSeries(metric: StressMetricKey, selectedEconomy: StressEconomyKey) {
+  const cutoff = cutoffYearForMetricEconomy(metric, selectedEconomy);
+  const values: StressValue[] = stressData[metric][selectedEconomy].map((value, index) => (
+    cutoff && Number(stressYears[index]) > Number(cutoff) ? value : null
+  ));
+  for (const point of previewData) {
+    if (point.metric !== metric || point.economy !== selectedEconomy) continue;
+    const index = stressYears.indexOf(point.year);
+    if (index >= 0) values[index] = point.value;
+  }
+  return values;
+}
+
+function combinedMetricSeries(metric: StressMetricKey, selectedEconomy: StressEconomyKey) {
+  const historical = historicalMetricSeries(metric, selectedEconomy);
+  const preview = previewMetricSeries(metric, selectedEconomy);
+  return historical.map((value, index) => value ?? preview[index] ?? null);
+}
+
+function previewLabel(metric: StressMetricKey, selectedEconomy: StressEconomyKey, years: readonly string[], language: Language) {
+  const points: Array<Pick<StressPreviewPoint, "year" | "status" | "observations" | "latestObservation">> = [];
+  for (const year of years) {
+    const explicit = previewData.find((point) => point.metric === metric && point.economy === selectedEconomy && point.year === year);
+    if (explicit) {
+      points.push(explicit);
+      continue;
+    }
+    const index = stressYears.indexOf(year);
+    const cutoff = cutoffYearForMetricEconomy(metric, selectedEconomy);
+    const value = index >= 0 ? stressData[metric][selectedEconomy][index] : null;
+    if (cutoff && Number(year) > Number(cutoff) && value !== null) {
+      points.push({ year, status: "rolling-current-year", observations: 0 });
+    }
+  }
+  if (points.length === 0) return language === "zh" ? "临时预览" : "provisional";
+  if (points.length > 1) return language === "zh" ? "临时预览" : "provisional";
+  const point = points[0];
+  const month = point.latestObservation?.slice(5, 7);
+  if (language === "zh") {
+    return month ? `${point.year} YTD / 截至${Number(month)}月 / provisional` : `${point.year} YTD / provisional`;
+  }
+  return month ? `${point.year} YTD / through ${point.latestObservation?.slice(0, 7)} / provisional` : `${point.year} YTD / provisional`;
+}
+
 function cutoffDisplay(year: string | null, language: Language) {
   if (!year) return language === "zh" ? "空" : "Blank";
   return year;
@@ -670,11 +724,35 @@ function pairMetricName(metric: StressMetricKey, language: Language, mode: ViewM
 
 function pairMetricSeries(metric: StressMetricKey, pair: StressPairKey): StressValue[] {
   const { base, quote } = stressPairLabels[pair];
-  if (usesLogSpread(metric)) return logSpreadSeries(stressData[metric][base], stressData[metric][quote]);
-  return stressData[metric][base].map((baseValue, index) => {
-    const quoteValue = stressData[metric][quote][index];
+  const baseSeries = historicalMetricSeries(metric, base);
+  const quoteSeries = historicalMetricSeries(metric, quote);
+  if (usesLogSpread(metric)) return logSpreadSeries(baseSeries, quoteSeries);
+  return baseSeries.map((baseValue, index) => {
+    const quoteValue = quoteSeries[index];
     if (baseValue === null || quoteValue === null) return null;
     return Number((baseValue - quoteValue).toFixed(4));
+  });
+}
+
+function pairMetricPreviewSeries(metric: StressMetricKey, pair: StressPairKey): StressValue[] {
+  const { base, quote } = stressPairLabels[pair];
+  const baseHistorical = historicalMetricSeries(metric, base);
+  const quoteHistorical = historicalMetricSeries(metric, quote);
+  const basePreview = previewMetricSeries(metric, base);
+  const quotePreview = previewMetricSeries(metric, quote);
+  return baseHistorical.map((baseValue, index) => {
+    const quoteValue = quoteHistorical[index];
+    const previewBaseValue = basePreview[index];
+    const previewQuoteValue = quotePreview[index];
+    if (previewBaseValue === null && previewQuoteValue === null) return null;
+    const combinedBase = previewBaseValue ?? baseValue;
+    const combinedQuote = previewQuoteValue ?? quoteValue;
+    if (combinedBase === null || combinedQuote === null) return null;
+    if (usesLogSpread(metric)) {
+      if (combinedBase <= 0 || combinedQuote <= 0) return null;
+      return Number((Math.log(combinedBase) - Math.log(combinedQuote)).toFixed(4));
+    }
+    return Number((combinedBase - combinedQuote).toFixed(4));
   });
 }
 
@@ -928,9 +1006,11 @@ function Chart({ title, years, lines, dualAxis, leftAxisName, rightAxisName }: {
         data: line.values,
         yAxisIndex: line.yAxisIndex ?? 0,
         connectNulls: false,
-        showSymbol: false,
+        showSymbol: line.showSymbol ?? false,
+        symbol: line.showSymbol ? "emptyCircle" : "circle",
+        symbolSize: line.showSymbol ? 7 : 4,
         smooth: line.smooth ?? true,
-        lineStyle: { width: line.yAxisIndex === 1 ? 2.7 : 2 },
+        lineStyle: { width: line.yAxisIndex === 1 ? 2.7 : 2, type: line.dashed ? "dashed" : "solid" },
       })),
     });
     const resize = () => chart.resize();
@@ -976,20 +1056,36 @@ function App() {
     if (viewMode === "single") {
       const allYears = chartYears;
       const windowIndexes = chartWindowIndexes(allYears, chartWindowStart);
-      const rawSeries = metrics.map((metric) => alignSeries(stressYears, stressData[metric][economy], allYears));
-      const displaySeries = rawSeries.map((values) => (scaleMode === "zscore" ? zScoreSeries(values) : values));
+      const historicalSeries = metrics.map((metric) => alignSeries(stressYears, historicalMetricSeries(metric, economy), allYears));
+      const previewSeries = metrics.map((metric) => alignSeries(stressYears, previewMetricSeries(metric, economy), allYears));
+      const combinedSeries = metrics.map((_, index) => historicalSeries[index].map((value, itemIndex) => value ?? previewSeries[index][itemIndex] ?? null));
+      const displaySeries = combinedSeries.map((values) => (scaleMode === "zscore" ? zScoreSeries(values) : values));
+      const displayHistoricalSeries = displaySeries.map((values, index) => values.map((value, itemIndex) => historicalSeries[index][itemIndex] !== null ? value : null));
+      const displayPreviewSeries = displaySeries.map((values, index) => values.map((value, itemIndex) => previewSeries[index][itemIndex] !== null ? value : null));
       const windowedDisplaySeries = displaySeries.map((values) => windowIndexes.map((index) => values[index] ?? null));
       const rightAxisIndexes = splitRightAxisIndexes(windowedDisplaySeries);
       const hasSplitAxis = rightAxisIndexes.size > 0;
-      const lines = metrics.map((metric, index) => {
-        const values = displaySeries[index];
+      const lines = metrics.flatMap((metric, index) => {
+        const values = displayHistoricalSeries[index];
+        const previewValues = displayPreviewSeries[index];
         const yAxisIndex = rightAxisIndexes.has(index) ? 1 : 0;
-        return {
+        const metricLines: ChartLine[] = [{
           name: `${metricName(metric, language)}${hasSplitAxis ? axisSuffix(yAxisIndex, language) : ""}`,
           unit: chartUnit(metric, scaleMode),
           values,
           yAxisIndex,
-        } satisfies ChartLine;
+        }];
+        if (previewValues.some((value) => value !== null)) {
+          metricLines.push({
+            name: `${metricName(metric, language)} · ${previewLabel(metric, economy, allYears, language)}${hasSplitAxis ? axisSuffix(yAxisIndex, language) : ""}`,
+            unit: chartUnit(metric, scaleMode),
+            values: previewValues,
+            yAxisIndex,
+            dashed: true,
+            showSymbol: true,
+          });
+        }
+        return metricLines;
       });
       const { years, lines: windowedLines } = applyChartWindow(allYears, lines, chartWindowStart);
       return {
@@ -1004,21 +1100,36 @@ function App() {
     const alignedFx = alignSeries(stressFxYears, stressFxData[pair], chartYears);
     const metricSeries = metrics.map((metric) => {
       const rawValues = pairMetricSeries(metric, pair);
-      const values = alignSeries(stressYears, scaleMode === "zscore" ? zScoreSeries(rawValues) : rawValues, chartYears);
-      return { metric, values };
+      const previewValues = pairMetricPreviewSeries(metric, pair);
+      const combinedValues = rawValues.map((value, index) => value ?? previewValues[index] ?? null);
+      const displayValues = scaleMode === "zscore" ? zScoreSeries(combinedValues) : combinedValues;
+      const values = alignSeries(stressYears, displayValues.map((value, index) => rawValues[index] !== null ? value : null), chartYears);
+      const preview = alignSeries(stressYears, displayValues.map((value, index) => previewValues[index] !== null ? value : null), chartYears);
+      return { metric, values, preview };
     });
     const windowIndexes = chartWindowIndexes(chartYears, chartWindowStart);
     const windowedFx = windowIndexes.map((index) => alignedFx[index] ?? null);
-    const windowedMetricValues = metricSeries.map((series) => windowIndexes.map((index) => series.values[index] ?? null));
+    const windowedMetricValues = metricSeries.map((series) => windowIndexes.map((index) => series.values[index] ?? series.preview[index] ?? null));
     const rightAxisIndexes = scaleMode === "raw"
       ? splitRightAxisIndexesAnchoredLeft([windowedFx, ...windowedMetricValues], 0)
       : new Set<number>(metrics.map((_, index) => index + 1));
     const fxAxisIndex: 0 | 1 = 0;
-    const metricLines = metricSeries.map(({ metric, values }, index) => {
+    const metricLines = metricSeries.flatMap(({ metric, values, preview }, index) => {
       const yAxisIndex = rightAxisIndexes.has(index + 1) ? 1 : 0;
       const directionLabel = chartPairDirectionLabel(pair, language);
       const separator = language === "zh" ? " " : " · ";
-      return { name: `${pairMetricName(metric, language, viewMode)}${separator}${directionLabel}${axisSuffix(yAxisIndex, language)}`, unit: chartUnit(metric, scaleMode, true), values, yAxisIndex } satisfies ChartLine;
+      const lines: ChartLine[] = [{ name: `${pairMetricName(metric, language, viewMode)}${separator}${directionLabel}${axisSuffix(yAxisIndex, language)}`, unit: chartUnit(metric, scaleMode, true), values, yAxisIndex }];
+      if (preview.some((value) => value !== null)) {
+        lines.push({
+          name: `${pairMetricName(metric, language, viewMode)}${separator}${directionLabel} · ${language === "zh" ? "临时预览" : "provisional"}${axisSuffix(yAxisIndex, language)}`,
+          unit: chartUnit(metric, scaleMode, true),
+          values: preview,
+          yAxisIndex,
+          dashed: true,
+          showSymbol: true,
+        });
+      }
+      return lines;
     });
     const hasRightAxis = metricLines.some((line) => line.yAxisIndex === 1);
     const fxLine: ChartLine = { name: `${stressPairLabels[pair].fx} FX${axisSuffix(fxAxisIndex, language)}`, values: alignedFx, yAxisIndex: fxAxisIndex, smooth: false };
@@ -1221,7 +1332,7 @@ function App() {
 
   const renderDataReadme = () => <section className="readmeSection"><h3>{t.versionReadme}</h3><div className="readmeGrid">{dataReadmeCards.map((card) => <article key={card.title.en} className="readmeCard"><strong>{card.title[language]}</strong><p>{card.body[language]}</p></article>)}</div></section>;
 
-  const renderCutoffTable = () => <section className="readmeSection"><h3>{language === "zh" ? "历史存档截止年份与自动更新起点" : "Archived Historical Cutoff Years And Auto-Update Start"}</h3><p>{language === "zh" ? "表格中的年份均为“历史存档截止年份”：在已确定数据真实性后，作为历史数据存档，不再自动更新。自动更新脚本每天运行一次，只尝试刷新该截止年份之后的官方公开数据；少数标记为可修订的近期拼接值会从该年份继续刷新。如果发现新的官方值，会写入数据库，并同步更新本表与页脚的“最新更新”日期。" : "All years in this table are archived historical cutoff years: the latest verified year archived as historical data and no longer auto-updated. Refresh scripts run daily and only attempt official public data after each cutoff year; a small number of provisional stitched recent values remain refreshable from that same year. When a new official value is found, the local database, this table, and the footer update date are updated together."}</p><p>{language === "zh" ? `FX：${stressArchivedThrough.fx}年及以前已经作为历史汇率数据存档，不再自动更新；自动更新起点为${stressAutoUpdatePolicy.fx.autoRefreshFrom}年。` : `FX: values through ${stressArchivedThrough.fx} are archived historical exchange-rate data and are no longer auto-updated; automatic refresh starts from ${stressAutoUpdatePolicy.fx.autoRefreshFrom}.`}</p><p>{language === "zh" ? "CPI、10年期名义收益率、实际政策利率和实际政策利率Z-score 的当前年数据是滚动年内均值，不计入“历史存档截止年份”；它们会随月度CPI、月末10年收益率和政策利率发布而更新。自动任务只在观察数达到规则要求后入库，缺口不会用插值、外推或非官方代理填充。" : "Current-year CPI, 10Y nominal yield, real policy rate, and real-policy-rate Z-score are rolling YTD averages and are not counted as archived historical cutoff years; they update as monthly CPI, month-end 10Y yields, and policy rates are released. The automated job writes data only after observation-count rules are met; gaps are not interpolated, extrapolated, or filled with unofficial proxies."}</p><div className="tableWrap dataCutoffTable"><table><thead><tr>{[language === "zh" ? "指标" : "Indicator", ...economyOrder.map((economy) => stressEconomyLabels[economy][language]), language === "zh" ? "自动更新起始年份" : "Auto-update start year"].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody><tr><td>FX</td>{economyOrder.map((economy) => <td key={`fx-${economy}`}>{stressArchivedThrough.fx}</td>)}<td>{stressAutoUpdatePolicy.fx.autoRefreshFrom}</td></tr>{cutoffMetrics.map((metric) => <tr key={metric}><td>{metricName(metric, language)}</td>{economyOrder.map((economy) => <td key={`${metric}-${economy}`}>{cutoffDisplay(cutoffYearForMetricEconomy(metric, economy), language)}</td>)}<td>{autoUpdateStartSummaryForMetric(metric, language)}</td></tr>)}</tbody></table></div></section>;
+  const renderCutoffTable = () => <section className="readmeSection"><h3>{language === "zh" ? "历史存档截止年份与自动更新起点" : "Archived Historical Cutoff Years And Auto-Update Start"}</h3><p>{language === "zh" ? "表格中的年份均为“历史存档截止年份”：在已确定数据真实性后，作为历史数据存档，不再自动更新。自动更新脚本每天运行一次，只尝试刷新该截止年份之后的官方公开数据；少数标记为可修订的近期拼接值会从该年份继续刷新。如果发现新的官方值，会写入数据库，并同步更新本表与页脚的“最新更新”日期。" : "All years in this table are archived historical cutoff years: the latest verified year archived as historical data and no longer auto-updated. Refresh scripts run daily and only attempt official public data after each cutoff year; a small number of provisional stitched recent values remain refreshable from that same year. When a new official value is found, the local database, this table, and the footer update date are updated together."}</p><p>{language === "zh" ? `FX：${stressArchivedThrough.fx}年及以前已经作为历史汇率数据存档，不再自动更新；自动更新起点为${stressAutoUpdatePolicy.fx.autoRefreshFrom}年。` : `FX: values through ${stressArchivedThrough.fx} are archived historical exchange-rate data and are no longer auto-updated; automatic refresh starts from ${stressAutoUpdatePolicy.fx.autoRefreshFrom}.`}</p><p>{language === "zh" ? "CPI、10年期名义收益率、实际政策利率和实际政策利率Z-score 的当前年数据是滚动年内均值，不计入“历史存档截止年份”；它们会随月度CPI、月末10年收益率和政策利率发布而更新。已结束年份必须有12个月度/月末观测值或官方年度值才写入为历史数据；未最终确认的值只进入临时预览层，用虚线和空心点展示，不参与历史截止年份。缺口不会用插值、外推或非官方代理填充。" : "Current-year CPI, 10Y nominal yield, real policy rate, and real-policy-rate Z-score are rolling YTD averages and are not counted as archived historical cutoff years; they update as monthly CPI, month-end 10Y yields, and policy rates are released. A completed year is written as historical data only after 12 monthly/month-end observations or an official annual value; unfinished values enter only the preview layer, shown as dashed lines and hollow markers, and do not affect archived cutoff years. Gaps are not interpolated, extrapolated, or filled with unofficial proxies."}</p><div className="tableWrap dataCutoffTable"><table><thead><tr>{[language === "zh" ? "指标" : "Indicator", ...economyOrder.map((economy) => stressEconomyLabels[economy][language]), language === "zh" ? "自动更新起始年份" : "Auto-update start year"].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody><tr><td>FX</td>{economyOrder.map((economy) => <td key={`fx-${economy}`}>{stressArchivedThrough.fx}</td>)}<td>{stressAutoUpdatePolicy.fx.autoRefreshFrom}</td></tr>{cutoffMetrics.map((metric) => <tr key={metric}><td>{metricName(metric, language)}</td>{economyOrder.map((economy) => <td key={`${metric}-${economy}`}>{cutoffDisplay(cutoffYearForMetricEconomy(metric, economy), language)}</td>)}<td>{autoUpdateStartSummaryForMetric(metric, language)}</td></tr>)}</tbody></table></div></section>;
 
   const renderDataDictionary = () => <section className="readmeSection"><h3>{language === "zh" ? "指标级数据字典：Raw Data 来源、年度口径、转换公式、质量提示" : "Metric-Level Data Dictionary: Raw Data Source, Annual Convention, Transformation Formula, and Quality Note"}</h3><div className="tableWrap dataDictionaryTable"><table><thead><tr>{[language === "zh" ? "指标" : "Metric", language === "zh" ? "Raw data 来源/单位" : "Raw data source / unit", language === "zh" ? "年度数据口径" : "Annual data convention", language === "zh" ? "从 raw data 到指标的公式" : "Formula from raw data to metric", language === "zh" ? "可比性/质量提示" : "Comparability / quality note"].map((head) => <th key={head}>{head}</th>)}</tr></thead><tbody>{dataDictionaryRows.map((row) => <tr key={row.metric.en}><td>{row.metric[language]}</td><td>{row.raw[language]}</td><td>{annualConceptForMetric(row.metric.en, language)}</td><td>{row.formula[language]}</td><td>{row.quality[language]}</td></tr>)}</tbody></table></div></section>;
 
