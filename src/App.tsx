@@ -612,6 +612,16 @@ function cutoffDisplay(year: string | null, language: Language) {
   return year;
 }
 
+function autoUpdatePart(labels: string[], start: string, language: Language) {
+  const label = labels.length === economyOrder.length
+    ? ""
+    : labels.length === economyOrder.length - 1
+      ? language === "zh" ? "其它货币" : "Other currencies"
+      : labels.join("/");
+  const separator = language === "zh" ? "：" : ": ";
+  return label ? `${label}${separator}${start}` : start;
+}
+
 function autoUpdateStartSummaryForMetric(metric: StressMetricKey, language: Language) {
   const grouped = new Map<string, string[]>();
   for (const economy of economyOrder) {
@@ -619,17 +629,17 @@ function autoUpdateStartSummaryForMetric(metric: StressMetricKey, language: Lang
     const label = stressEconomyLabels[economy].currency;
     grouped.set(start, [...(grouped.get(start) ?? []), label]);
   }
-  const twdStart = groupedByEconomyStart(metric, "tw", language);
-  const otherStarts = economyOrder
-    .filter((economy) => economy !== "tw")
-    .map((economy) => groupedByEconomyStart(metric, economy, language));
-  const firstOtherStart = otherStarts[0];
-  if (firstOtherStart && otherStarts.every((start) => start === firstOtherStart) && twdStart !== firstOtherStart) {
-    return language === "zh" ? `其它货币: ${firstOtherStart}; TWD: ${twdStart}` : `Other currencies: ${firstOtherStart}; TWD: ${twdStart}`;
-  }
   return [...grouped.entries()]
-    .map(([start, labels]) => labels.length === economyOrder.length ? start : `${labels.join("/")}: ${start}`)
-    .join("; ");
+    .sort(([aStart], [bStart]) => {
+      const aYear = Number(aStart);
+      const bYear = Number(bStart);
+      if (Number.isFinite(aYear) && Number.isFinite(bYear)) return aYear - bYear;
+      if (Number.isFinite(aYear)) return -1;
+      if (Number.isFinite(bYear)) return 1;
+      return aStart.localeCompare(bStart);
+    })
+    .map(([start, labels]) => autoUpdatePart(labels, start, language))
+    .join(language === "zh" ? "；" : "; ");
 }
 
 function groupedByEconomyStart(metric: StressMetricKey, economy: StressEconomyKey, language: Language) {
