@@ -2,21 +2,27 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import {
+  DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+  ECONOMY_ORDER as economyOrder,
+  LOG_SPREAD_METRICS as logSpreadMetrics,
+  buildIngestionMatrix,
+  createIngestionLog,
+  isFiniteNumber,
+  isoDate,
+  refreshStartYear,
+  round4,
+  writeDecision,
+} from "./ingestionPolicy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
 const dataDir = path.join(root, "data");
 const stressModelPath = path.join(root, "src", "data", "stressModel.ts");
 const updateLogPath = path.join(dataDir, "recent-update-log.json");
-const START_YEAR = 1965;
+const ingestionPolicyLogPath = path.join(dataDir, "ingestion-policy-log.json");
 const currentYear = new Date().getFullYear();
-const currentMonth = new Date().toISOString().slice(0, 7);
-const MIN_COMPLETE_YEAR_MONTHS = 10;
-
-const economyOrder = ["eu", "gb", "us", "cn", "jp", "tw", "kr", "in"];
-const highFrequencyMetrics = ["cpiInflation", "nominal10yYield", "realPolicyRate", "realPolicyRateZ"];
-const officialRecentMetrics = ["caGdp"];
-const logSpreadMetrics = new Set(["tfpCtfp", "ulcProxy"]);
+const currentDate = isoDate(new Date());
 
 const pairEconomies = {
   eurgbp: ["eu", "gb"], eurusd: ["eu", "us"], eurcny: ["eu", "cn"], eurjpy: ["eu", "jp"], eurtwd: ["eu", "tw"], eurkrw: ["eu", "kr"], eurinr: ["eu", "in"],
@@ -167,6 +173,34 @@ const currentAccountGdpOverrides = {
   },
 };
 
+const automatedSourceRegistry = {
+  cpiInflation: {
+    eu: { status: "active", cadence: "high-frequency", source: `${fredSeries.cpiInflation.eu.source} (${fredSeries.cpiInflation.eu.id})` },
+    us: { status: "active", cadence: "high-frequency", source: `${fredSeries.cpiInflation.us.source} (${fredSeries.cpiInflation.us.id})` },
+    gb: { status: "active", cadence: "high-frequency", source: officialCpiSources.gb.source },
+    cn: { status: "manual-fixed-official", cadence: "annual", source: officialCpiSources.cn.source },
+    jp: { status: "manual-fixed-official", cadence: "annual", source: officialCpiSources.jp.source },
+    kr: { status: "manual-fixed-official", cadence: "annual", source: officialCpiSources.kr.source },
+    in: { status: "active", cadence: "high-frequency", source: officialCpiSources.in.source },
+  },
+  nominal10yYield: Object.fromEntries(Object.entries(fredSeries.nominal10yYield).map(([economy, config]) => [
+    economy,
+    { status: "active", cadence: "high-frequency", source: `${config.source} (${config.id})` },
+  ])),
+  caGdp: Object.fromEntries(Object.entries(currentAccountGdpOverrides).map(([economy, config]) => [
+    economy,
+    { status: "manual-fixed-official", cadence: "annual", source: config.source },
+  ])),
+  realPolicyRate: Object.fromEntries(economyOrder.map((economy) => [
+    economy,
+    { status: "derived", cadence: "high-frequency", source: "Nominal policy rate minus headline CPI inflation." },
+  ])),
+  realPolicyRateZ: Object.fromEntries(economyOrder.map((economy) => [
+    economy,
+    { status: "derived", cadence: "high-frequency", source: "Standardized real policy rate." },
+  ])),
+};
+
 const loadEnvFile = (filePath) => {
   if (!fs.existsSync(filePath)) return;
   for (const line of fs.readFileSync(filePath, "utf8").split(/\r?\n/)) {
@@ -194,9 +228,6 @@ const replaceConst = (source, name, trailerRegex, valueText) => source.replace(
   new RegExp(`export const ${name} = [\\s\\S]*?${trailerRegex}`),
   `export const ${name} = ${valueText}`,
 );
-
-const round4 = (value) => Number(value.toFixed(4));
-const isFiniteNumber = (value) => Number.isFinite(value);
 
 const valueByDate = (observations) => observations
   .map((observation) => ({
@@ -255,11 +286,6 @@ const annualCpiYoyAverage = (entries) => {
     yoyEntries.push({ date: `${month}-01`, value: ((value / prior) - 1) * 100 });
   }
   return annualAverageFromMonthly(yoyEntries);
-};
-
-const shouldUseYear = (year, observations) => {
-  if (Number(year) === currentYear) return observations > 0;
-  return observations >= MIN_COMPLETE_YEAR_MONTHS;
 };
 
 const seriesFromFred = async (apiKey, config) => {
@@ -351,26 +377,34 @@ const ensureYear = (years, stressData, year) => {
   }
 };
 
-const firstMissingOrRecentYear = (years, values, metric) => {
-  const isHighFrequency = highFrequencyMetrics.includes(metric);
-  const cap = isHighFrequency ? currentYear - 1 : currentYear;
-  for (let index = 0; index < years.length; index += 1) {
-    const year = Number(years[index]);
-    if (year > cap && values[index] == null) return String(year);
-  }
-  const lastYear = years.reduce((latest, year, index) => values[index] != null ? Math.max(latest, Number(year)) : latest, START_YEAR - 1);
-  return String(lastYear + 1);
-};
-
-const setSeriesValues = ({ years, stressData, metric, economy, annual, source, changes, errors }) => {
+const setSeriesValues = ({ years, stressData, metric, economy, annual, source, changes, errors, cadence }) => {
   const values = stressData[metric][economy];
+  const autoRefreshFrom = refreshStartYear({
+    metric,
+    economy,
+    years,
+    values,
+    currentYear,
+    overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+  });
+  let sawEligibleSourcePoint = false;
   for (let index = 0; index < years.length; index += 1) {
     const year = years[index];
     const yearNumber = Number(year);
-    if (yearNumber < 2025) continue;
     const annualPoint = annual[year];
-    const isOfficialRecentMetric = officialRecentMetrics.includes(metric);
-    if (!annualPoint || (!isOfficialRecentMetric && !shouldUseYear(year, annualPoint.observations))) continue;
+    const decision = writeDecision({
+      metric,
+      economy,
+      year,
+      annualPoint,
+      years,
+      values,
+      currentYear,
+      cadence,
+      overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+    });
+    if (autoRefreshFrom && yearNumber >= Number(autoRefreshFrom) && annualPoint) sawEligibleSourcePoint = true;
+    if (!decision.allow) continue;
     const nextValue = annualPoint.value;
     if (!isFiniteNumber(nextValue)) continue;
     const oldValue = values[index];
@@ -385,25 +419,40 @@ const setSeriesValues = ({ years, stressData, metric, economy, annual, source, c
         source,
         observations: annualPoint.observations,
         latestObservation: annualPoint.lastDate,
-        status: yearNumber === currentYear ? "rolling-current-year" : "official-high-frequency-annualized",
+        status: decision.status,
+        autoRefreshFrom: decision.autoRefreshFrom,
       });
     }
   }
-  if (!Object.keys(annual).some((year) => Number(year) >= 2025)) {
-    errors.push({ metric, economy, source, message: "No usable 2025-or-later observations found." });
+  if (autoRefreshFrom && !sawEligibleSourcePoint) {
+    errors.push({ metric, economy, source, autoRefreshFrom, message: `No usable observations found at or after auto-refresh start year ${autoRefreshFrom}.` });
   }
 };
 
 const recomputeRealPolicyRate = (years, stressData, policyRateAnnual, changes) => {
   for (const economy of economyOrder) {
     const policyByYear = policyRateAnnual[economy] ?? {};
+    const values = stressData.realPolicyRate[economy];
     for (let index = 0; index < years.length; index += 1) {
       const year = years[index];
-      if (Number(year) < 2025) continue;
       const policyPoint = policyByYear[year];
       const cpiValue = stressData.cpiInflation[economy][index];
-      if (!policyPoint || !shouldUseYear(year, policyPoint.observations) || !isFiniteNumber(cpiValue)) continue;
-      const nextValue = round4(policyPoint.value - cpiValue);
+      const derivedPoint = policyPoint && isFiniteNumber(cpiValue)
+        ? { ...policyPoint, value: round4(policyPoint.value - cpiValue) }
+        : null;
+      const decision = writeDecision({
+        metric: "realPolicyRate",
+        economy,
+        year,
+        annualPoint: derivedPoint,
+        years,
+        values,
+        currentYear,
+        cadence: "high-frequency",
+        overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+      });
+      if (!decision.allow || !derivedPoint) continue;
+      const nextValue = derivedPoint.value;
       const oldValue = stressData.realPolicyRate[economy][index];
       if (oldValue !== nextValue) {
         stressData.realPolicyRate[economy][index] = nextValue;
@@ -418,7 +467,8 @@ const recomputeRealPolicyRate = (years, stressData, policyRateAnnual, changes) =
             : "Derived from nominal policy-rate annual/YTD average minus headline CPI annual/YTD average.",
           observations: policyPoint.observations,
           latestObservation: policyPoint.lastDate,
-          status: Number(year) === currentYear ? "rolling-current-year" : "derived-high-frequency-annualized",
+          status: decision.status === "rolling-current-year" ? "rolling-current-year" : "derived-high-frequency-annualized",
+          autoRefreshFrom: decision.autoRefreshFrom,
         });
       }
     }
@@ -437,20 +487,31 @@ const recomputeRealPolicyRateZ = (years, stressData, changes) => {
     for (let index = 0; index < years.length; index += 1) {
       const raw = values[index];
       const nextValue = isFiniteNumber(raw) ? round4((raw - mean) / stdev) : null;
+      const decision = writeDecision({
+        metric: "realPolicyRateZ",
+        economy,
+        year: years[index],
+        annualPoint: nextValue === null ? null : { value: nextValue, observations: Number(years[index]) === currentYear ? 1 : 12, lastDate: `${years[index]}-12-31` },
+        years,
+        values: stressData.realPolicyRateZ[economy],
+        currentYear,
+        cadence: "high-frequency",
+        overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+      });
+      if (!decision.allow) continue;
       const oldValue = stressData.realPolicyRateZ[economy][index];
       if (oldValue !== nextValue) {
         stressData.realPolicyRateZ[economy][index] = nextValue;
-        if (Number(years[index]) >= 2025) {
-          changes.push({
-            metric: "realPolicyRateZ",
-            economy,
-            year: years[index],
-            oldValue,
-            newValue: nextValue,
-            source: "Recomputed from the full real-policy-rate sample after recent data refresh.",
-            status: Number(years[index]) === currentYear ? "rolling-current-year" : "derived-standardized",
-          });
-        }
+        changes.push({
+          metric: "realPolicyRateZ",
+          economy,
+          year: years[index],
+          oldValue,
+          newValue: nextValue,
+          source: "Derived from the current real-policy-rate sample; archived Z-score years are not rewritten by automatic refresh.",
+          status: Number(years[index]) === currentYear ? "rolling-current-year" : "derived-standardized",
+          autoRefreshFrom: decision.autoRefreshFrom,
+        });
       }
     }
   }
@@ -479,12 +540,24 @@ const main = async () => {
   fs.mkdirSync(dataDir, { recursive: true });
   const apiKey = process.env.FRED_API_KEY;
   if (!apiKey) {
-    const log = {
-      generatedAt: new Date().toISOString(),
+    const source = fs.readFileSync(stressModelPath, "utf8");
+    const years = extractConstJson(source, "stressYears", ";");
+    const stressData = extractConstJson(source, "stressData", " as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue[]>>;");
+    const matrix = buildIngestionMatrix({
+      years,
+      stressData,
+      currentYear,
+      sourceRegistry: automatedSourceRegistry,
+      overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+    });
+    const log = createIngestionLog({
+      lastUpdatedDate: currentDate,
+      matrix,
       changes: [],
       errors: [{ source: "FRED", message: "FRED_API_KEY is missing. High-frequency CPI, 10Y yield, and policy-rate refresh was skipped; no local data constants were changed." }],
-    };
+    });
     fs.writeFileSync(updateLogPath, `${JSON.stringify(log, null, 2)}\n`);
+    fs.writeFileSync(ingestionPolicyLogPath, `${JSON.stringify(log, null, 2)}\n`);
     console.log(JSON.stringify({ updatedStressModel: false, changes: 0, errors: 1, updateLogPath }, null, 2));
     return;
   }
@@ -546,26 +619,28 @@ const main = async () => {
   recomputeRealPolicyRateZ(years, stressData, changes);
   const stressPairComparisons = recomputePairComparisons(stressData);
 
-  const log = {
-    generatedAt: new Date().toISOString(),
-    policy: {
-      scope: "Refreshes only 2025 and later high-frequency official/public CPI, 10Y nominal yield, nominal policy rates, derived real policy rate, and derived real-policy-rate Z-score. Historical years before 2025 are preserved.",
+  const ingestionMatrix = buildIngestionMatrix({
+    years,
+    stressData,
+    currentYear,
+    sourceRegistry: automatedSourceRegistry,
+    overrides: DEFAULT_AUTO_UPDATE_START_OVERRIDES,
+  });
+  const log = createIngestionLog({
+    lastUpdatedDate: currentDate,
+    matrix: ingestionMatrix,
+    changes,
+    errors,
+    extraPolicy: {
+      scope: "Refreshes only years at or after each metric/economy auto-refresh start year. Historical archived years are preserved.",
       cpi: "Monthly CPI index observations are converted to monthly YoY inflation rates; annual/current-year value is the average of available monthly YoY rates.",
       nominal10yYield: "Daily 10Y yields use month-end observations; monthly series use monthly observations. Annual/current-year value is the average of available monthly points.",
       realPolicyRate: "Nominal policy-rate annual/YTD average minus headline CPI annual/YTD average.",
-      gaps: "Missing source adapters are logged and are not filled by interpolation, extrapolation, or unofficial proxies.",
+      realPolicyRateZ: "Stored Z-score values are refreshed only for eligible years; archived Z-score snapshots are not automatically rewritten.",
     },
-    changes,
-    errors,
-    nextRefreshCandidates: Object.fromEntries(highFrequencyMetrics.map((metric) => [
-      metric,
-      Object.fromEntries(economyOrder.map((economy) => [
-        economy,
-        firstMissingOrRecentYear(years, stressData[metric][economy], metric),
-      ])),
-    ])),
-  };
+  });
   fs.writeFileSync(updateLogPath, `${JSON.stringify(log, null, 2)}\n`);
+  fs.writeFileSync(ingestionPolicyLogPath, `${JSON.stringify(log, null, 2)}\n`);
 
   if (changes.length === 0) {
     console.log(JSON.stringify({
@@ -582,7 +657,7 @@ const main = async () => {
   next = replaceConst(next, "stressData", " as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue\\[\\]>>;", `${JSON.stringify(stressData)} as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue[]>>;`);
   next = replaceConst(next, "stressPairComparisons", " as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue\\[\\]>>;", `${JSON.stringify(stressPairComparisons)} as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue[]>>;`);
   if (changes.length > 0) {
-    next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentMonth}";`);
+    next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
   }
   fs.writeFileSync(stressModelPath, next);
 

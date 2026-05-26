@@ -5,11 +5,11 @@ export type StressPairKey = "eurgbp" | "eurusd" | "eurcny" | "eurjpy" | "eurtwd"
 export type StressGroupKey = "eur" | "gbp" | "usd" | "cny" | "jpy" | "twd" | "krw";
 export type StressValue = number | null;
 
-export const stressDataLastUpdated = "2026-05";
+export const stressDataLastUpdated = "2026-05-26";
 export const stressArchivedThrough = { fx: "2025" } as const;
 export const stressAutoUpdatePolicy = {
   fx: { archivedThrough: "2025", autoRefreshFrom: "2026", note: "FX values through 2025 are archived historical data; only 2026 FX is refreshed automatically." },
-  macro: { note: "Non-FX indicators are refreshed only for years after each metric/economy cutoff year when official public data becomes available. CPI, 10Y nominal yield, and derived real policy rate use current-year rolling YTD averages from high-frequency source data when available." },
+  macro: { note: "Non-FX indicators are checked daily and refreshed only for years after each metric/economy cutoff year when official public data becomes available. CPI, 10Y nominal yield, and derived real policy rate use current-year rolling YTD averages from high-frequency source data when available." },
 } as const;
 
 export const stressAutoUpdateStartOverrides = { fdiGdp: { in: "2025" }, portfolioGdp: { in: "2025" } } as const;

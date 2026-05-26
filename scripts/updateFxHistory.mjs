@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
+import { INGESTION_POLICY_VERSION, START_YEAR, isoDate, yearRange } from "./ingestionPolicy.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -9,7 +10,10 @@ const dataDir = path.join(root, "data");
 const stressModelPath = path.join(root, "src", "data", "stressModel.ts");
 const fxDbPath = path.join(dataDir, "Fx_Stress_Model_Data_v3.json");
 const legacyFxDbPath = path.join(dataDir, "fx-history.json");
+const fxIngestionLogPath = path.join(dataDir, "fx-ingestion-log.json");
 const FX_ARCHIVE_THROUGH_YEAR = 2025;
+const currentYear = new Date().getFullYear();
+const currentDate = isoDate(new Date());
 
 const loadEnvFile = (filePath) => {
   if (!fs.existsSync(filePath)) return;
@@ -27,7 +31,7 @@ loadEnvFile(path.join(path.dirname(root), "New project", ".env.local"));
 const fredApiKey = process.env.FRED_API_KEY;
 if (!fredApiKey) throw new Error("FRED_API_KEY is missing. Put it in .env.local before running FX refresh.");
 
-const years = Array.from({ length: 62 }, (_, index) => String(1965 + index));
+const years = yearRange(START_YEAR, currentYear);
 const currencies = ["eur", "gbp", "usd", "cny", "jpy", "twd", "krw", "inr"];
 const DEM_PER_EUR = 1.95583;
 const fredUsdValueSeries = {
@@ -65,7 +69,7 @@ const fetchFredObservations = async (seriesId) => {
   url.searchParams.set("api_key", fredApiKey);
   url.searchParams.set("file_type", "json");
   url.searchParams.set("observation_start", "1965-01-01");
-  url.searchParams.set("observation_end", "2026-12-31");
+  url.searchParams.set("observation_end", `${currentYear}-12-31`);
   const response = await fetch(url, { headers: { "user-agent": "fx-stress-model-data-refresh/1.0" } });
   if (!response.ok) throw new Error(`${seriesId}: ${response.status} ${response.statusText}`);
   const payload = await response.json();
@@ -138,7 +142,7 @@ const main = async () => {
   const existingFxDb = fs.existsSync(fxDbPath) ? JSON.parse(fs.readFileSync(fxDbPath, "utf8")) : null;
 
   const usdValueByCurrency = { usd: Object.fromEntries(years.map((year) => [year, 1])) };
-  const sourceCoverage = { usd: { source: "Identity", firstYear: "1965", lastYear: "2026", observations: years.length, note: "USD base." } };
+  const sourceCoverage = { usd: { source: "Identity", firstYear: "1965", lastYear: String(currentYear), observations: years.length, note: "USD base." } };
 
   const worldBankUsdValueByCurrency = {};
   const worldBankCoverage = {};
@@ -217,7 +221,7 @@ const main = async () => {
     firstYear: eurYears[0] ?? null,
     lastYear: eurYears.at(-1) ?? null,
     observations: eurYears.length,
-    note: "EUR proxy before 1999 uses Deutsche Mark because DE/EA macro data before 1999 uses Germany proxy. Official fixed conversion: 1 EUR = 1.95583 DEM. 2025-2026 values are FRED observed-rate annual/YTD averages until World Bank annual values are published.",
+    note: `EUR proxy before 1999 uses Deutsche Mark because DE/EA macro data before 1999 uses Germany proxy. Official fixed conversion: 1 EUR = 1.95583 DEM. Years after ${FX_ARCHIVE_THROUGH_YEAR} use FRED observed-rate annual/YTD averages until World Bank annual values are published.`,
   };
 
   const pairs = {};
@@ -252,10 +256,24 @@ const main = async () => {
   };
   fs.writeFileSync(fxDbPath, `${JSON.stringify(database, null, 2)}\n`);
   fs.writeFileSync(legacyFxDbPath, `${JSON.stringify(database, null, 2)}\n`);
+  fs.writeFileSync(fxIngestionLogPath, `${JSON.stringify({
+    generatedAt: new Date().toISOString(),
+    lastUpdatedDate: currentDate,
+    policyVersion: INGESTION_POLICY_VERSION,
+    archivedThroughYear: String(FX_ARCHIVE_THROUGH_YEAR),
+    autoRefreshYears: years.filter((year) => Number(year) > FX_ARCHIVE_THROUGH_YEAR),
+    rule: {
+      archive: `FX values through ${FX_ARCHIVE_THROUGH_YEAR} are locked as historical annual averages and are not rewritten by automatic refresh.`,
+      refresh: `Only FX years after ${FX_ARCHIVE_THROUGH_YEAR} are refreshed from public sources.`,
+      annualization: "Daily observed exchange-rate series are converted to arithmetic annual or YTD averages; World Bank annual official exchange rates are used where already published.",
+      eurProxy: "Before 1999, EUR uses the Deutsche Mark official fixed conversion because pre-1999 DE/EA macro data is Germany proxy.",
+    },
+    sourceCoverage,
+  }, null, 2)}\n`);
 
   let next = source.replace(/export const stressFxYears = [\s\S]*?;/, `export const stressFxYears = ${JSON.stringify(years)};`);
   next = next.replace(/export const stressFxData = [\s\S]*? as const satisfies Record<StressPairKey, StressValue\[]>;/, `export const stressFxData = ${JSON.stringify(archivedPairs)} as const satisfies Record<StressPairKey, StressValue[]>;`);
-  next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${new Date().toISOString().slice(0, 7)}";`);
+  next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
   fs.writeFileSync(stressModelPath, next);
 
   console.log(JSON.stringify({
