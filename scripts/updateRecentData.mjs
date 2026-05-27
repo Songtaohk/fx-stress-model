@@ -286,18 +286,32 @@ const buildMacroRefreshSummary = ({ source, changes, errors, previewChanged, pre
     ...(previewChanged ? previewPoints.map(compactPreviewItem) : []),
   ];
   const macroErrors = errors.map(compactErrorItem);
-  const totalChanges = (prior.fx?.changes ?? 0) + changes.length + previewUpdateCount;
+  const officialChanges = (prior.fx?.changes ?? 0) + changes.length;
+  const totalChanges = officialChanges + previewUpdateCount;
   const totalWarnings = (prior.fx?.errors?.length ?? 0) + macroErrors.length;
-  const status = totalWarnings > 0 ? "success-with-warnings" : totalChanges > 0 ? "success" : "success-no-new-data";
-  const headline = totalChanges > 0
+  const status = totalWarnings > 0
+    ? "success-with-warnings"
+    : officialChanges > 0
+      ? "success"
+      : previewUpdateCount > 0
+        ? "success-preview-only"
+        : "success-no-new-data";
+  const warningText = totalWarnings > 0 ? `；另有 ${totalWarnings} 个数据源提示需要检查` : "";
+  const warningTextEn = totalWarnings > 0 ? `; ${totalWarnings} source warning(s) need review` : "";
+  const headline = officialChanges > 0
     ? {
-      zh: `本次刷新发现 ${totalChanges} 项更新${totalWarnings > 0 ? `；另有 ${totalWarnings} 个数据源提示需要检查` : ""}。`,
-      en: `This refresh found ${totalChanges} update(s)${totalWarnings > 0 ? `; ${totalWarnings} source warning(s) need review` : ""}.`,
+      zh: `本次刷新发现 ${officialChanges} 项正式入库更新${previewUpdateCount > 0 ? `，并刷新 ${previewUpdateCount} 项年内滚动预览值` : ""}${warningText}。`,
+      en: `This refresh found ${officialChanges} archived-data update(s)${previewUpdateCount > 0 ? ` and refreshed ${previewUpdateCount} rolling preview value(s)` : ""}${warningTextEn}.`,
     }
-    : {
-      zh: totalWarnings > 0 ? `本次刷新未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "本次刷新未发现任何新数据公布。",
-      en: totalWarnings > 0 ? `No new data was found; ${totalWarnings} source warning(s) need review.` : "No new data was found in this refresh.",
-    };
+    : previewUpdateCount > 0
+      ? {
+        zh: `本次刷新未发现可正式入库的新历史数据；已刷新 ${previewUpdateCount} 项年内滚动预览值${warningText}。`,
+        en: `No new archived historical data was found; ${previewUpdateCount} rolling preview value(s) were refreshed${warningTextEn}.`,
+      }
+      : {
+        zh: totalWarnings > 0 ? `本次刷新未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "本次刷新未发现任何新数据公布。",
+        en: totalWarnings > 0 ? `No new data was found; ${totalWarnings} source warning(s) need review.` : "No new data was found in this refresh.",
+      };
   return {
     ...prior,
     refreshedAt: new Date().toISOString(),
@@ -308,10 +322,15 @@ const buildMacroRefreshSummary = ({ source, changes, errors, previewChanged, pre
       checked: true,
       changes: changes.length,
       previewUpdates: previewUpdateCount,
-      message: macroItems.length > 0
+      message: changes.length > 0
         ? {
-          zh: `本次宏观刷新更新 ${macroItems.length} 项正式/预览数据。`,
-          en: `This macro refresh updated ${macroItems.length} historical or preview data point(s).`,
+          zh: `本次宏观刷新写入 ${changes.length} 项正式入库数据${previewUpdateCount > 0 ? `，并刷新 ${previewUpdateCount} 项年内滚动预览值` : ""}。`,
+          en: `This macro refresh wrote ${changes.length} archived data point(s)${previewUpdateCount > 0 ? ` and refreshed ${previewUpdateCount} rolling preview value(s)` : ""}.`,
+        }
+        : previewUpdateCount > 0
+        ? {
+          zh: `本次宏观刷新未写入新的历史数据；仅刷新 ${previewUpdateCount} 项年内滚动预览值。`,
+          en: `This macro refresh wrote no new historical data; it only refreshed ${previewUpdateCount} rolling preview value(s).`,
         }
         : {
           zh: "本次宏观刷新未发现任何新数据公布。",

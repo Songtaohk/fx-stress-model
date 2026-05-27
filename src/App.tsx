@@ -1346,7 +1346,9 @@ function App() {
       ? (language === "zh" ? "无新数据" : "No new data")
       : refreshStatus === "success-with-warnings"
         ? (language === "zh" ? "有提示" : "With warnings")
-        : (language === "zh" ? "已更新" : "Updated");
+        : refreshStatus === "success-preview-only"
+          ? (language === "zh" ? "预览已更新" : "Preview updated")
+          : (language === "zh" ? "已入库" : "Archived");
     return <section className="readmeSection refreshSummarySection"><h3>{language === "zh" ? "自动更新规则" : "Automatic Update Rules"}</h3><p>{language === "zh" ? "每日刷新完成后，本区显示最近一次刷新时间、是否发现新数据、正式入库或临时预览的更新内容，以及需要人工复核的数据源提示。" : "After each daily refresh, this section shows the latest refresh time, whether new data was found, historical or preview updates, and source warnings that need review."}</p><div className="refreshSummaryHeader"><span>{language === "zh" ? "更新时间" : "Refresh time"}：{stressRefreshSummary.refreshedDate}</span><span className={`refreshStatus ${refreshStatus}`}>{statusLabel}</span></div><p className="refreshHeadline">{stressRefreshSummary.headline[language]}</p><div className="refreshGrid">{renderRefreshStep(language === "zh" ? "汇率数据刷新" : "FX refresh", stressRefreshSummary.fx)}{renderRefreshStep(language === "zh" ? "宏观数据刷新" : "Macro refresh", stressRefreshSummary.macro)}</div></section>;
   };
 

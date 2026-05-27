@@ -178,6 +178,7 @@ th { position: sticky; top: 0; background: #111c2f; z-index: 1; color: #e5edf6; 
   font-weight: 800;
 }
 .refreshStatus.success { border-color: #1b6d63; color: #baf7ed; background: var(--accent-soft); }
+.refreshStatus.success-preview-only { border-color: #1d5f80; color: #bae6fd; background: rgba(14, 165, 233, 0.16); }
 .refreshStatus.success-no-new-data { border-color: #314459; color: #c7d4e6; }
 .refreshStatus.success-with-warnings { border-color: #8a6a18; color: #fde68a; background: rgba(146, 106, 14, 0.16); }
 .refreshHeadline { border-left: 4px solid var(--accent); padding-left: 10px; color: #e5edf6 !important; font-weight: 800; }
