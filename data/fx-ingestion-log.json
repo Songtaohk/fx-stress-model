@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-05-27T01:32:27.264Z",
+  "lastUpdatedDate": "2026-05-27",
+  "policyVersion": "2026-05-26.2",
+  "archivedThroughYear": "2025",
+  "autoRefreshYears": [
+    "2026"
+  ],
+  "rule": {
+    "archive": "FX values through 2025 are locked as historical annual averages and are not rewritten by automatic refresh.",
+    "refresh": "Only FX years after 2025 are refreshed from public sources.",
+    "annualization": "Daily observed exchange-rate series are converted to arithmetic annual or YTD averages; World Bank annual official exchange rates are used where already published.",
+    "eurProxy": "Before 1999, EUR uses the Deutsche Mark official fixed conversion because pre-1999 DE/EA macro data is Germany proxy."
+  },
+  "sourceCoverage": {
+    "usd": {
+      "source": "Identity",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "USD base."
+    },
+    "gbp": {
+      "source": "World Bank PA.NUS.FCRF GBR; FRED DEXUSUK for years not yet available in World Bank",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "World Bank PA.NUS.FCRF United Kingdom official exchange rate, GBP per USD. Recent years, where World Bank annual values are not yet published, are filled from FRED annual arithmetic averages of observed daily rates."
+    },
+    "cny": {
+      "source": "World Bank PA.NUS.FCRF CHN; FRED DEXCHUS for years not yet available in World Bank",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "World Bank PA.NUS.FCRF China official exchange rate, CNY per USD. Recent years, where World Bank annual values are not yet published, are filled from FRED annual arithmetic averages of observed daily rates."
+    },
+    "jpy": {
+      "source": "World Bank PA.NUS.FCRF JPN; FRED DEXJPUS for years not yet available in World Bank",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "World Bank PA.NUS.FCRF Japan official exchange rate, JPY per USD. Recent years, where World Bank annual values are not yet published, are filled from FRED annual arithmetic averages of observed daily rates."
+    },
+    "krw": {
+      "source": "World Bank PA.NUS.FCRF KOR; FRED DEXKOUS for years not yet available in World Bank",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "World Bank PA.NUS.FCRF Korea official exchange rate, KRW per USD. Recent years, where World Bank annual values are not yet published, are filled from FRED annual arithmetic averages of observed daily rates."
+    },
+    "inr": {
+      "source": "World Bank PA.NUS.FCRF IND; FRED DEXINUS for years not yet available in World Bank",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "World Bank PA.NUS.FCRF India official exchange rate, INR per USD. Recent years, where World Bank annual values are not yet published, are filled from FRED annual arithmetic averages of observed daily rates."
+    },
+    "twd": {
+      "source": "FRED DEXTAUS",
+      "firstYear": "1983",
+      "lastYear": "2026",
+      "observations": 44,
+      "note": "Taiwan is not available in World Bank PA.NUS.FCRF; FRED TWD per USD is transformed to USD per TWD."
+    },
+    "eur": {
+      "source": "World Bank Germany PA.NUS.FCRF before 1999 via official DEM/EUR conversion; World Bank Euro Area PA.NUS.FCRF from 1999, extended with FRED DEXUSEU for recent years",
+      "firstYear": "1965",
+      "lastYear": "2026",
+      "observations": 62,
+      "note": "EUR proxy before 1999 uses Deutsche Mark because DE/EA macro data before 1999 uses Germany proxy. Official fixed conversion: 1 EUR = 1.95583 DEM. Years after 2025 use FRED observed-rate annual/YTD averages until World Bank annual values are published."
+    }
+  }
+}
