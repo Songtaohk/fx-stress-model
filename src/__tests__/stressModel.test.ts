@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { stressAutoUpdatePolicy, stressData, stressDataLastUpdated, stressFxData, stressFxYears, stressLayers, stressPairComparisons, stressPairGroups, stressPairLabels, stressPreviewData, stressYears } from "../data/stressModel";
+import { stressAutoUpdatePolicy, stressData, stressDataLastUpdated, stressFxData, stressFxYears, stressLayers, stressPairComparisons, stressPairGroups, stressPairLabels, stressPreviewData, stressRefreshSummary, stressYears } from "../data/stressModel";
 
 describe("FX stress model data", () => {
   it("has six layers and the requested currency-pair order", () => {
@@ -44,6 +44,12 @@ describe("FX stress model data", () => {
 
   it("keeps provisional observations separate from historical data", () => {
     expect(Array.isArray(stressPreviewData)).toBe(true);
+  });
+
+  it("publishes the latest refresh summary for the Data Interpretation page", () => {
+    expect(stressRefreshSummary.refreshedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(stressRefreshSummary.headline.zh.length).toBeGreaterThan(0);
+    expect(stressRefreshSummary.fx.checked || stressRefreshSummary.macro.checked).toBe(true);
   });
 
   it("exposes confirmed 2025 updates to chart source data and pair spreads", () => {

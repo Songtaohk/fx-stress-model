@@ -116,6 +116,87 @@ const extractConstJson = (source, name, trailer) => {
   if (end < 0) return null;
   return JSON.parse(source.slice(valueStart, end).trim());
 };
+const replaceConst = (source, name, trailerRegex, valueText) => source.replace(
+  new RegExp(`export const ${name} = [\\s\\S]*?${trailerRegex}`),
+  `export const ${name} = ${valueText}`,
+);
+const emptyRefreshSummary = () => ({
+  refreshedAt: new Date().toISOString(),
+  refreshedDate: currentDate,
+  status: "success-no-new-data",
+  headline: {
+    zh: "本次刷新未发现任何新数据公布。",
+    en: "No new data was found in this refresh.",
+  },
+  fx: {
+    checked: false,
+    changes: 0,
+    message: {
+      zh: "本次刷新未执行汇率数据检查。",
+      en: "FX data was not checked in this refresh.",
+    },
+    items: [],
+    errors: [],
+  },
+  macro: {
+    checked: false,
+    changes: 0,
+    previewUpdates: 0,
+    message: {
+      zh: "本次刷新未执行宏观数据检查。",
+      en: "Macro data was not checked in this refresh.",
+    },
+    items: [],
+    errors: [],
+  },
+});
+const compactFxChange = (change) => `${change.pair} / ${change.year}: ${change.oldValue ?? "blank"} -> ${change.newValue ?? "blank"}`;
+const diffPairValues = (existingFxData, nextFxData) => {
+  const changes = [];
+  for (const [pair, values] of Object.entries(nextFxData)) {
+    const priorValues = existingFxData[pair] ?? [];
+    values.forEach((value, index) => {
+      const year = years[index];
+      if (Number(year) <= FX_ARCHIVE_THROUGH_YEAR) return;
+      const prior = priorValues[index] ?? null;
+      if (prior !== value) changes.push({ pair, year, oldValue: prior, newValue: value });
+    });
+  }
+  return changes;
+};
+const buildFxRefreshSummary = (source, fxChanges) => {
+  const prior = extractConstJson(source, "stressRefreshSummary", " as const satisfies StressRefreshSummary;") ?? emptyRefreshSummary();
+  return {
+    ...prior,
+    refreshedAt: new Date().toISOString(),
+    refreshedDate: currentDate,
+    status: fxChanges.length > 0 ? "success" : "success-no-new-data",
+    headline: fxChanges.length > 0
+      ? {
+        zh: `本次刷新发现 ${fxChanges.length} 项汇率更新。`,
+        en: `This refresh found ${fxChanges.length} FX update(s).`,
+      }
+      : {
+        zh: "本次刷新未发现任何新数据公布。",
+        en: "No new data was found in this refresh.",
+      },
+    fx: {
+      checked: true,
+      changes: fxChanges.length,
+      message: fxChanges.length > 0
+        ? {
+          zh: `本次汇率刷新更新 ${fxChanges.length} 个货币对年度值。`,
+          en: `This FX refresh updated ${fxChanges.length} annual pair value(s).`,
+        }
+        : {
+          zh: "本次汇率刷新未发现任何新数据公布。",
+          en: "No new FX data was found in this refresh.",
+        },
+      items: fxChanges.slice(0, 30).map(compactFxChange),
+      errors: [],
+    },
+  };
+};
 const mergeArchivedSeries = (freshValues, existingYears, existingValues = []) => years.map((year, index) => {
   if (Number(year) > FX_ARCHIVE_THROUGH_YEAR) return freshValues[index] ?? null;
   const existingIndex = existingYears.indexOf(year);
@@ -237,6 +318,7 @@ const main = async () => {
     pair,
     mergeArchivedSeries(values, existingFxYears, existingFxData[pair]),
   ]));
+  const fxChanges = diffPairValues(existingFxData, archivedPairs);
   const archivedUsdValuePerCurrency = Object.fromEntries(currencies.map((currency) => [
     currency,
     mergeArchivedSeries(toSeries(usdValueByCurrency[currency] ?? {}), existingFxDb?.years ?? [], existingFxDb?.usdValuePerCurrency?.[currency]),
@@ -269,16 +351,19 @@ const main = async () => {
       eurProxy: "Before 1999, EUR uses the Deutsche Mark official fixed conversion because pre-1999 DE/EA macro data is Germany proxy.",
     },
     sourceCoverage,
+    changes: fxChanges,
   }, null, 2)}\n`);
 
   let next = source.replace(/export const stressFxYears = [\s\S]*?;/, `export const stressFxYears = ${JSON.stringify(years)};`);
   next = next.replace(/export const stressFxData = [\s\S]*? as const satisfies Record<StressPairKey, StressValue\[]>;/, `export const stressFxData = ${JSON.stringify(archivedPairs)} as const satisfies Record<StressPairKey, StressValue[]>;`);
+  next = replaceConst(next, "stressRefreshSummary", " as const satisfies StressRefreshSummary;", `${JSON.stringify(buildFxRefreshSummary(source, fxChanges))} as const satisfies StressRefreshSummary;`);
   next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
   fs.writeFileSync(stressModelPath, next);
 
   console.log(JSON.stringify({
     fxDbPath,
     updatedStressModel: stressModelPath,
+    changes: fxChanges.length,
     coverage: sourceCoverage,
   }, null, 2));
 };

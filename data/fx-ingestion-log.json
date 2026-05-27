@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-05-27T01:32:27.264Z",
+  "generatedAt": "2026-05-27T01:49:15.059Z",
   "lastUpdatedDate": "2026-05-27",
   "policyVersion": "2026-05-26.2",
   "archivedThroughYear": "2025",
@@ -69,5 +69,6 @@
       "observations": 62,
       "note": "EUR proxy before 1999 uses Deutsche Mark because DE/EA macro data before 1999 uses Germany proxy. Official fixed conversion: 1 EUR = 1.95583 DEM. Years after 2025 use FRED observed-rate annual/YTD averages until World Bank annual values are published."
     }
-  }
+  },
+  "changes": []
 }

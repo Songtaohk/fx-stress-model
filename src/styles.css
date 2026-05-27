@@ -166,6 +166,28 @@ th { position: sticky; top: 0; background: #111c2f; z-index: 1; color: #e5edf6; 
 .readmeSection { margin: 18px 0; }
 .readmeGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .readmeCard { padding: 14px; }
+.refreshSummarySection > p { margin: 0 0 12px; color: var(--muted); line-height: 1.6; }
+.refreshSummaryHeader { display: flex; justify-content: space-between; gap: 12px; align-items: center; flex-wrap: wrap; margin: 10px 0; }
+.refreshSummaryHeader span:first-child, .refreshStatus {
+  border: 1px solid var(--border-strong);
+  background: #091321;
+  border-radius: 999px;
+  padding: 8px 11px;
+  color: #d7e3f1;
+  font-size: 13px;
+  font-weight: 800;
+}
+.refreshStatus.success { border-color: #1b6d63; color: #baf7ed; background: var(--accent-soft); }
+.refreshStatus.success-no-new-data { border-color: #314459; color: #c7d4e6; }
+.refreshStatus.success-with-warnings { border-color: #8a6a18; color: #fde68a; background: rgba(146, 106, 14, 0.16); }
+.refreshHeadline { border-left: 4px solid var(--accent); padding-left: 10px; color: #e5edf6 !important; font-weight: 800; }
+.refreshGrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.refreshCard { border: 1px solid var(--border); background: var(--panel-soft); border-radius: 12px; padding: 14px; }
+.refreshCard strong { display: block; color: #f8fbff; margin-bottom: 8px; }
+.refreshCard p { margin: 0 0 10px; color: var(--muted); line-height: 1.55; }
+.refreshCard ul { margin: 0; padding-left: 18px; color: #d7e3f1; line-height: 1.55; }
+.refreshWarnings { margin-top: 12px; border: 1px solid #8a6a18; border-radius: 10px; background: rgba(146, 106, 14, 0.12); padding: 10px; }
+.refreshWarnings b { display: block; color: #fde68a; margin-bottom: 6px; }
 .dataDictionaryTable { max-height: 520px; }
 .dataDictionaryTable table { min-width: 1320px; }
 .dataDictionaryTable th, .dataDictionaryTable td { text-align: left; vertical-align: top; line-height: 1.5; }
@@ -174,7 +196,7 @@ footer { color: var(--subtle); text-align: center; padding: 26px 0 0; }
 
 @media (max-width: 900px) {
   .siteHeader, .sectionHeader { grid-template-columns: 1fr; display: grid; }
-  .layerGrid, .methodGrid, .metricDocGrid, .paymentGrid, .paymentForm, .autoPaymentForm, .readmeGrid { grid-template-columns: 1fr; }
+  .layerGrid, .methodGrid, .metricDocGrid, .paymentGrid, .paymentForm, .autoPaymentForm, .readmeGrid, .refreshGrid { grid-template-columns: 1fr; }
   .headerActions { justify-content: flex-start; }
   .dataNavButton { margin-left: 0; }
   .chart { height: 460px; }

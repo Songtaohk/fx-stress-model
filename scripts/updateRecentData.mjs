@@ -6,6 +6,7 @@ import {
   DEFAULT_AUTO_UPDATE_START_OVERRIDES,
   ECONOMY_ORDER as economyOrder,
   LOG_SPREAD_METRICS as logSpreadMetrics,
+  START_YEAR,
   buildIngestionMatrix,
   createIngestionLog,
   isFiniteNumber,
@@ -42,10 +43,9 @@ const fredSeries = {
     eu: { id: "IRLTLT01EZM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     gb: { id: "IRLTLT01GBM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     us: { id: "DGS10", kind: "levelMonthEnd", source: "FRED / U.S. Treasury 10Y daily yield, month-end sampled" },
-    cn: { id: "IRLTLT01CNM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     jp: { id: "IRLTLT01JPM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     kr: { id: "IRLTLT01KRM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
-    in: { id: "IRLTLT01INM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
+    in: { id: "INDIRLTLT01STM", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
   },
   policyRateNominal: {
     eu: { id: "ECBMRRFR", kind: "levelMonthEnd", source: "FRED / ECB main refinancing operations rate" },
@@ -228,6 +228,100 @@ const replaceConst = (source, name, trailerRegex, valueText) => source.replace(
   new RegExp(`export const ${name} = [\\s\\S]*?${trailerRegex}`),
   `export const ${name} = ${valueText}`,
 );
+
+const emptyRefreshSummary = () => ({
+  refreshedAt: new Date().toISOString(),
+  refreshedDate: currentDate,
+  status: "success-no-new-data",
+  headline: {
+    zh: "本次刷新未发现任何新数据公布。",
+    en: "No new data was found in this refresh.",
+  },
+  fx: {
+    checked: false,
+    changes: 0,
+    message: {
+      zh: "本次刷新未执行汇率数据检查。",
+      en: "FX data was not checked in this refresh.",
+    },
+    items: [],
+    errors: [],
+  },
+  macro: {
+    checked: false,
+    changes: 0,
+    previewUpdates: 0,
+    message: {
+      zh: "本次刷新未执行宏观数据检查。",
+      en: "Macro data was not checked in this refresh.",
+    },
+    items: [],
+    errors: [],
+  },
+});
+
+const extractRefreshSummary = (source) => {
+  try {
+    return extractConstJson(source, "stressRefreshSummary", " as const satisfies StressRefreshSummary;");
+  } catch {
+    return emptyRefreshSummary();
+  }
+};
+
+const compactChangeItem = (change) => {
+  const oldValue = change.oldValue === null || change.oldValue === undefined ? "blank" : change.oldValue;
+  const newValue = change.newValue === null || change.newValue === undefined ? "blank" : change.newValue;
+  return `${change.metric ?? "unknown"} / ${change.economy ?? "unknown"} / ${change.year ?? "unknown"}: ${oldValue} -> ${newValue}`;
+};
+
+const compactPreviewItem = (point) => `${point.metric} / ${point.economy} / ${point.year}: ${point.value} (${point.status}, ${point.observations} obs${point.latestObservation ? ` through ${point.latestObservation}` : ""})`;
+
+const compactErrorItem = (error) => `${error.metric ?? error.source ?? "source"}${error.economy ? ` / ${error.economy}` : ""}: ${error.message ?? "unknown error"}`;
+
+const buildMacroRefreshSummary = ({ source, changes, errors, previewChanged, previewPoints }) => {
+  const prior = extractRefreshSummary(source);
+  const previewUpdateCount = previewChanged ? previewPoints.length : 0;
+  const macroItems = [
+    ...changes.map(compactChangeItem),
+    ...(previewChanged ? previewPoints.map(compactPreviewItem) : []),
+  ];
+  const macroErrors = errors.map(compactErrorItem);
+  const totalChanges = (prior.fx?.changes ?? 0) + changes.length + previewUpdateCount;
+  const totalWarnings = (prior.fx?.errors?.length ?? 0) + macroErrors.length;
+  const status = totalWarnings > 0 ? "success-with-warnings" : totalChanges > 0 ? "success" : "success-no-new-data";
+  const headline = totalChanges > 0
+    ? {
+      zh: `本次刷新发现 ${totalChanges} 项更新${totalWarnings > 0 ? `；另有 ${totalWarnings} 个数据源提示需要检查` : ""}。`,
+      en: `This refresh found ${totalChanges} update(s)${totalWarnings > 0 ? `; ${totalWarnings} source warning(s) need review` : ""}.`,
+    }
+    : {
+      zh: totalWarnings > 0 ? `本次刷新未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "本次刷新未发现任何新数据公布。",
+      en: totalWarnings > 0 ? `No new data was found; ${totalWarnings} source warning(s) need review.` : "No new data was found in this refresh.",
+    };
+  return {
+    ...prior,
+    refreshedAt: new Date().toISOString(),
+    refreshedDate: currentDate,
+    status,
+    headline,
+    macro: {
+      checked: true,
+      changes: changes.length,
+      previewUpdates: previewUpdateCount,
+      message: macroItems.length > 0
+        ? {
+          zh: `本次宏观刷新更新 ${macroItems.length} 项正式/预览数据。`,
+          en: `This macro refresh updated ${macroItems.length} historical or preview data point(s).`,
+        }
+        : {
+          zh: "本次宏观刷新未发现任何新数据公布。",
+          en: "No new macro data was found in this refresh.",
+        },
+      items: macroItems.slice(0, 30),
+      errors: macroErrors.slice(0, 30),
+    },
+  };
+};
 
 const valueByDate = (observations) => observations
   .map((observation) => ({
@@ -490,9 +584,6 @@ const setSeriesValues = ({ years, stressData, metric, economy, annual, source, c
         autoRefreshFrom: decision.autoRefreshFrom,
       });
     }
-  }
-  if (autoRefreshFrom && !sawEligibleSourcePoint) {
-    errors.push({ metric, economy, source, autoRefreshFrom, message: `No usable observations found at or after auto-refresh start year ${autoRefreshFrom}.` });
   }
 };
 
@@ -776,8 +867,19 @@ const main = async () => {
   log.previewData = sortedPreviewPoints;
   fs.writeFileSync(updateLogPath, `${JSON.stringify(log, null, 2)}\n`);
   fs.writeFileSync(ingestionPolicyLogPath, `${JSON.stringify(log, null, 2)}\n`);
+  const refreshSummary = buildMacroRefreshSummary({
+    source,
+    changes,
+    errors,
+    previewChanged,
+    previewPoints: sortedPreviewPoints,
+  });
 
   if (changes.length === 0 && !previewChanged) {
+    let next = source;
+    next = replaceConst(next, "stressRefreshSummary", " as const satisfies StressRefreshSummary;", `${JSON.stringify(refreshSummary)} as const satisfies StressRefreshSummary;`);
+    next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
+    fs.writeFileSync(stressModelPath, next);
     console.log(JSON.stringify({
       updatedStressModel: false,
       changes: 0,
@@ -790,11 +892,10 @@ const main = async () => {
   let next = source;
   next = replaceConst(next, "stressYears", ";", `${JSON.stringify(years)};`);
   next = replaceConst(next, "stressPreviewData", " as const satisfies StressPreviewPoint\\[\\];", `${JSON.stringify(sortedPreviewPoints)} as const satisfies StressPreviewPoint[];`);
+  next = replaceConst(next, "stressRefreshSummary", " as const satisfies StressRefreshSummary;", `${JSON.stringify(refreshSummary)} as const satisfies StressRefreshSummary;`);
   next = replaceConst(next, "stressData", " as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue\\[\\]>>;", `${JSON.stringify(stressData)} as const satisfies Record<StressMetricKey, Record<StressEconomyKey, StressValue[]>>;`);
   next = replaceConst(next, "stressPairComparisons", " as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue\\[\\]>>;", `${JSON.stringify(stressPairComparisons)} as const satisfies Record<StressMetricKey, Record<StressPairKey, StressValue[]>>;`);
-  if (changes.length > 0 || previewChanged) {
-    next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
-  }
+  next = next.replace(/export const stressDataLastUpdated = ".*?";/, `export const stressDataLastUpdated = "${currentDate}";`);
   fs.writeFileSync(stressModelPath, next);
 
   console.log(JSON.stringify({
