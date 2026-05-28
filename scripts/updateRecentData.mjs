@@ -234,8 +234,8 @@ const emptyRefreshSummary = () => ({
   refreshedDate: currentDate,
   status: "success-no-new-data",
   headline: {
-    zh: "本次刷新未发现任何新数据公布。",
-    en: "No new data was found in this refresh.",
+    zh: "今日累计未发现任何新数据公布。",
+    en: "No new data has been found today.",
   },
   fx: {
     checked: false,
@@ -277,41 +277,53 @@ const compactChangeItem = (change) => {
 const compactPreviewItem = (point) => `${point.metric} / ${point.economy} / ${point.year}: ${point.value} (${point.status}, ${point.observations} obs${point.latestObservation ? ` through ${point.latestObservation}` : ""})`;
 
 const compactErrorItem = (error) => `${error.metric ?? error.source ?? "source"}${error.economy ? ` / ${error.economy}` : ""}: ${error.message ?? "unknown error"}`;
+const uniqueItems = (items) => [...new Set(items.filter(Boolean))];
+const isPreviewItem = (item) => item.includes("(rolling-current-year") || item.includes("(provisional-completed-year");
 
 const buildMacroRefreshSummary = ({ source, changes, errors, previewChanged, previewPoints }) => {
   const prior = extractRefreshSummary(source);
-  const previewUpdateCount = previewChanged ? previewPoints.length : 0;
-  const macroItems = [
-    ...changes.map(compactChangeItem),
-    ...(previewChanged ? previewPoints.map(compactPreviewItem) : []),
-  ];
+  const sameDay = prior.refreshedDate === currentDate;
+  const currentOfficialItems = changes.map(compactChangeItem);
+  const currentPreviewItems = previewPoints.map(compactPreviewItem);
+  const priorMacroItems = sameDay ? prior.macro?.items ?? [] : [];
+  const officialItems = uniqueItems([
+    ...priorMacroItems.filter((item) => !isPreviewItem(item)),
+    ...currentOfficialItems,
+  ]);
+  const previewItems = uniqueItems([
+    ...priorMacroItems.filter(isPreviewItem),
+    ...currentPreviewItems,
+  ]);
   const macroErrors = errors.map(compactErrorItem);
-  const officialChanges = (prior.fx?.changes ?? 0) + changes.length;
-  const totalChanges = officialChanges + previewUpdateCount;
-  const totalWarnings = (prior.fx?.errors?.length ?? 0) + macroErrors.length;
+  const macroOfficialCount = officialItems.length;
+  const macroPreviewCount = previewItems.length;
+  const fxChangeCount = sameDay ? prior.fx?.changes ?? 0 : 0;
+  const officialChanges = fxChangeCount + macroOfficialCount;
+  const totalWarnings = (sameDay ? prior.fx?.errors?.length ?? 0 : 0) + macroErrors.length;
   const status = totalWarnings > 0
     ? "success-with-warnings"
     : officialChanges > 0
       ? "success"
-      : previewUpdateCount > 0
+      : macroPreviewCount > 0
         ? "success-preview-only"
         : "success-no-new-data";
   const warningText = totalWarnings > 0 ? `；另有 ${totalWarnings} 个数据源提示需要检查` : "";
   const warningTextEn = totalWarnings > 0 ? `; ${totalWarnings} source warning(s) need review` : "";
   const headline = officialChanges > 0
     ? {
-      zh: `本次刷新发现 ${officialChanges} 项正式入库更新${previewUpdateCount > 0 ? `，并刷新 ${previewUpdateCount} 项年内滚动预览值` : ""}${warningText}。`,
-      en: `This refresh found ${officialChanges} archived-data update(s)${previewUpdateCount > 0 ? ` and refreshed ${previewUpdateCount} rolling preview value(s)` : ""}${warningTextEn}.`,
+      zh: `今日累计发现 ${officialChanges} 项正式入库更新${macroPreviewCount > 0 ? `，并刷新 ${macroPreviewCount} 项年内滚动预览值` : ""}${warningText}。`,
+      en: `Today found ${officialChanges} archived-data update(s)${macroPreviewCount > 0 ? ` and refreshed ${macroPreviewCount} rolling preview value(s)` : ""}${warningTextEn}.`,
     }
-    : previewUpdateCount > 0
+    : macroPreviewCount > 0
       ? {
-        zh: `本次刷新未发现可正式入库的新历史数据；已刷新 ${previewUpdateCount} 项年内滚动预览值${warningText}。`,
-        en: `No new archived historical data was found; ${previewUpdateCount} rolling preview value(s) were refreshed${warningTextEn}.`,
+        zh: `今日暂未发现可正式入库的新历史数据；已累计刷新 ${macroPreviewCount} 项年内滚动预览值${warningText}。`,
+        en: `Today found no new archived historical data; ${macroPreviewCount} rolling preview value(s) have been refreshed${warningTextEn}.`,
       }
       : {
-        zh: totalWarnings > 0 ? `本次刷新未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "本次刷新未发现任何新数据公布。",
-        en: totalWarnings > 0 ? `No new data was found; ${totalWarnings} source warning(s) need review.` : "No new data was found in this refresh.",
+        zh: totalWarnings > 0 ? `今日累计未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "今日累计未发现任何新数据公布。",
+        en: totalWarnings > 0 ? `No new data has been found today; ${totalWarnings} source warning(s) need review.` : "No new data has been found today.",
       };
+  const mergedItems = [...officialItems, ...previewItems];
   return {
     ...prior,
     refreshedAt: new Date().toISOString(),
@@ -320,23 +332,23 @@ const buildMacroRefreshSummary = ({ source, changes, errors, previewChanged, pre
     headline,
     macro: {
       checked: true,
-      changes: changes.length,
-      previewUpdates: previewUpdateCount,
-      message: changes.length > 0
+      changes: macroOfficialCount,
+      previewUpdates: macroPreviewCount,
+      message: macroOfficialCount > 0
         ? {
-          zh: `本次宏观刷新写入 ${changes.length} 项正式入库数据${previewUpdateCount > 0 ? `，并刷新 ${previewUpdateCount} 项年内滚动预览值` : ""}。`,
-          en: `This macro refresh wrote ${changes.length} archived data point(s)${previewUpdateCount > 0 ? ` and refreshed ${previewUpdateCount} rolling preview value(s)` : ""}.`,
+          zh: `今日宏观刷新累计写入 ${macroOfficialCount} 项正式入库数据${macroPreviewCount > 0 ? `，并刷新 ${macroPreviewCount} 项年内滚动预览值` : ""}。`,
+          en: `Today macro refreshes have written ${macroOfficialCount} archived data point(s)${macroPreviewCount > 0 ? ` and refreshed ${macroPreviewCount} rolling preview value(s)` : ""}.`,
         }
-        : previewUpdateCount > 0
+        : macroPreviewCount > 0
         ? {
-          zh: `本次宏观刷新未写入新的历史数据；仅刷新 ${previewUpdateCount} 项年内滚动预览值。`,
-          en: `This macro refresh wrote no new historical data; it only refreshed ${previewUpdateCount} rolling preview value(s).`,
+          zh: `今日宏观刷新尚未写入新的历史数据；已累计刷新 ${macroPreviewCount} 项年内滚动预览值。`,
+          en: `Today macro refreshes have written no new historical data; ${macroPreviewCount} rolling preview value(s) have been refreshed.`,
         }
         : {
-          zh: "本次宏观刷新未发现任何新数据公布。",
-          en: "No new macro data was found in this refresh.",
+          zh: "今日宏观刷新未发现任何新数据公布。",
+          en: "No new macro data has been found today.",
         },
-      items: macroItems.slice(0, 30),
+      items: mergedItems.slice(0, 30),
       errors: macroErrors.slice(0, 30),
     },
   };

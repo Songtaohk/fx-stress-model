@@ -125,8 +125,8 @@ const emptyRefreshSummary = () => ({
   refreshedDate: currentDate,
   status: "success-no-new-data",
   headline: {
-    zh: "本次刷新未发现任何新数据公布。",
-    en: "No new data was found in this refresh.",
+    zh: "今日累计未发现任何新数据公布。",
+    en: "No new data has been found today.",
   },
   fx: {
     checked: false,
@@ -151,6 +151,27 @@ const emptyRefreshSummary = () => ({
   },
 });
 const compactFxChange = (change) => `${change.pair} / ${change.year}: ${change.oldValue ?? "blank"} -> ${change.newValue ?? "blank"}`;
+const uniqueItems = (items) => [...new Set(items.filter(Boolean))];
+const refreshHeadline = ({ officialChanges, previewUpdates, totalWarnings }) => {
+  const warningText = totalWarnings > 0 ? `；另有 ${totalWarnings} 个数据源提示需要检查` : "";
+  const warningTextEn = totalWarnings > 0 ? `; ${totalWarnings} source warning(s) need review` : "";
+  if (officialChanges > 0) {
+    return {
+      zh: `今日累计发现 ${officialChanges} 项正式入库更新${previewUpdates > 0 ? `，并刷新 ${previewUpdates} 项年内滚动预览值` : ""}${warningText}。`,
+      en: `Today found ${officialChanges} archived-data update(s)${previewUpdates > 0 ? ` and refreshed ${previewUpdates} rolling preview value(s)` : ""}${warningTextEn}.`,
+    };
+  }
+  if (previewUpdates > 0) {
+    return {
+      zh: `今日暂未发现可正式入库的新历史数据；已累计刷新 ${previewUpdates} 项年内滚动预览值${warningText}。`,
+      en: `Today found no new archived historical data; ${previewUpdates} rolling preview value(s) have been refreshed${warningTextEn}.`,
+    };
+  }
+  return {
+    zh: totalWarnings > 0 ? `今日累计未发现任何新数据公布；另有 ${totalWarnings} 个数据源提示需要检查。` : "今日累计未发现任何新数据公布。",
+    en: totalWarnings > 0 ? `No new data has been found today; ${totalWarnings} source warning(s) need review.` : "No new data has been found today.",
+  };
+};
 const diffPairValues = (existingFxData, nextFxData) => {
   const changes = [];
   for (const [pair, values] of Object.entries(nextFxData)) {
@@ -166,33 +187,43 @@ const diffPairValues = (existingFxData, nextFxData) => {
 };
 const buildFxRefreshSummary = (source, fxChanges) => {
   const prior = extractConstJson(source, "stressRefreshSummary", " as const satisfies StressRefreshSummary;") ?? emptyRefreshSummary();
+  const sameDay = prior.refreshedDate === currentDate;
+  const fxItems = uniqueItems([
+    ...(sameDay ? prior.fx?.items ?? [] : []),
+    ...fxChanges.map(compactFxChange),
+  ]);
+  const fxChangeCount = fxItems.length;
+  const macro = sameDay ? prior.macro : emptyRefreshSummary().macro;
+  const officialChanges = fxChangeCount + (macro?.changes ?? 0);
+  const previewUpdates = macro?.previewUpdates ?? 0;
+  const totalWarnings = (sameDay ? prior.fx?.errors?.length ?? 0 : 0) + (macro?.errors?.length ?? 0);
+  const status = totalWarnings > 0
+    ? "success-with-warnings"
+    : officialChanges > 0
+      ? "success"
+      : previewUpdates > 0
+        ? "success-preview-only"
+        : "success-no-new-data";
   return {
     ...prior,
+    macro,
     refreshedAt: new Date().toISOString(),
     refreshedDate: currentDate,
-    status: fxChanges.length > 0 ? "success" : "success-no-new-data",
-    headline: fxChanges.length > 0
-      ? {
-        zh: `本次刷新发现 ${fxChanges.length} 项汇率更新。`,
-        en: `This refresh found ${fxChanges.length} FX update(s).`,
-      }
-      : {
-        zh: "本次刷新未发现任何新数据公布。",
-        en: "No new data was found in this refresh.",
-      },
+    status,
+    headline: refreshHeadline({ officialChanges, previewUpdates, totalWarnings }),
     fx: {
       checked: true,
-      changes: fxChanges.length,
-      message: fxChanges.length > 0
+      changes: fxChangeCount,
+      message: fxItems.length > 0
         ? {
-          zh: `本次汇率刷新更新 ${fxChanges.length} 个货币对年度值。`,
-          en: `This FX refresh updated ${fxChanges.length} annual pair value(s).`,
+          zh: `今日汇率刷新累计更新 ${fxChangeCount} 个货币对年度值。`,
+          en: `Today FX refreshes have updated ${fxChangeCount} annual pair value(s).`,
         }
         : {
-          zh: "本次汇率刷新未发现任何新数据公布。",
-          en: "No new FX data was found in this refresh.",
+          zh: "今日汇率刷新未发现任何新数据公布。",
+          en: "No new FX data has been found today.",
         },
-      items: fxChanges.slice(0, 30).map(compactFxChange),
+      items: fxItems.slice(0, 30),
       errors: [],
     },
   };
