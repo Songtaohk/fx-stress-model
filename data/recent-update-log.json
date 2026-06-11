@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-10T05:11:27.842Z",
-  "lastUpdatedDate": "2026-06-10",
+  "generatedAt": "2026-06-11T05:24:21.684Z",
+  "lastUpdatedDate": "2026-06-11",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -1983,10 +1983,10 @@
       "metric": "cpiInflation",
       "economy": "us",
       "year": "2026",
-      "value": 2.967,
+      "value": 3.2233,
       "status": "rolling-current-year",
-      "observations": 4,
-      "latestObservation": "2026-04-01",
+      "observations": 5,
+      "latestObservation": "2026-05-01",
       "source": "FRED / BLS headline CPI index, NSA (CPIAUCNS)"
     },
     {
@@ -2043,10 +2043,10 @@
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.3233,
+      "value": 4.3183,
       "status": "rolling-current-year",
       "observations": 6,
-      "latestObservation": "2026-06-08",
+      "latestObservation": "2026-06-09",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
