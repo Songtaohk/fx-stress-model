@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-06-16T06:27:45.371Z",
-  "lastUpdatedDate": "2026-06-16",
+  "generatedAt": "2026-06-17T06:04:24.320Z",
+  "lastUpdatedDate": "2026-06-17",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -1973,10 +1973,10 @@
       "metric": "cpiInflation",
       "economy": "gb",
       "year": "2026",
-      "value": 3.025,
+      "value": 2.98,
       "status": "rolling-current-year",
-      "observations": 4,
-      "latestObservation": "2026-04-01",
+      "observations": 5,
+      "latestObservation": "2026-05-01",
       "source": "ONS MM23 D7G7 CPI annual inflation and monthly 12-month rate"
     },
     {
@@ -2043,10 +2043,10 @@
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.31,
+      "value": 4.3083,
       "status": "rolling-current-year",
       "observations": 6,
-      "latestObservation": "2026-06-12",
+      "latestObservation": "2026-06-15",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
