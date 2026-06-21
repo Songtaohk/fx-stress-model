@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-06-21T05:56:19.894Z",
+  "generatedAt": "2026-06-21T07:24:57.337Z",
   "lastUpdatedDate": "2026-06-21",
   "policyVersion": "2026-05-26.2",
   "policy": {
@@ -822,7 +822,7 @@
       "adapterStatus": "active",
       "cadence": "high-frequency",
       "provisionalRefreshFrom": null,
-      "source": "FRED / OECD long-term government bond yield (IRLTLT01EZM156N)",
+      "source": "ECB Data Portal / Euro Area 10 Years Government Benchmark Bond - Yield (FM.M.U2.EUR.4F.BB.U2_10Y.YLD)",
       "note": "No automated source adapter is active yet; existing archived values are preserved.",
       "rule": "Current-year rolling values can refresh; completed years are written only after 12 monthly/month-end observations or an official annual value. Archived years are locked."
     },
@@ -1993,11 +1993,11 @@
       "metric": "nominal10yYield",
       "economy": "eu",
       "year": "2026",
-      "value": 3.221,
+      "value": 3.3379,
       "status": "rolling-current-year",
-      "observations": 1,
-      "latestObservation": "2026-01-01",
-      "source": "FRED / OECD long-term government bond yield (IRLTLT01EZM156N)"
+      "observations": 5,
+      "latestObservation": "2026-05-01",
+      "source": "ECB Data Portal / Euro Area 10 Years Government Benchmark Bond - Yield (FM.M.U2.EUR.4F.BB.U2_10Y.YLD)"
     },
     {
       "metric": "nominal10yYield",

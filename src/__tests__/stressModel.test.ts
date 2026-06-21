@@ -46,6 +46,13 @@ describe("FX stress model data", () => {
     expect(Array.isArray(stressPreviewData)).toBe(true);
   });
 
+  it("uses the current ECB benchmark series for the euro-area 10Y yield preview", () => {
+    const preview = stressPreviewData.find((point) => point.metric === "nominal10yYield" && point.economy === "eu");
+    expect(preview?.source).toContain("ECB Data Portal");
+    expect(preview?.observations).toBeGreaterThan(1);
+    expect(preview?.latestObservation).not.toBe("2026-01-01");
+  });
+
   it("publishes the latest refresh summary for the Data Interpretation page", () => {
     expect(stressRefreshSummary.refreshedDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     expect(stressRefreshSummary.headline.zh.length).toBeGreaterThan(0);

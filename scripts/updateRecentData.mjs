@@ -40,7 +40,6 @@ const fredSeries = {
     us: { id: "CPIAUCNS", kind: "cpiIndex", source: "FRED / BLS headline CPI index, NSA" },
   },
   nominal10yYield: {
-    eu: { id: "IRLTLT01EZM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     gb: { id: "IRLTLT01GBM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
     us: { id: "DGS10", kind: "levelMonthEnd", source: "FRED / U.S. Treasury 10Y daily yield, month-end sampled" },
     jp: { id: "IRLTLT01JPM156N", kind: "levelMonthly", source: "FRED / OECD long-term government bond yield" },
@@ -55,6 +54,17 @@ const fredSeries = {
     jp: { id: "INTDSRJPM193N", kind: "levelMonthly", source: "FRED / discount or policy-rate type series" },
     kr: { id: "INTDSRKRM193N", kind: "levelMonthly", source: "FRED / discount or policy-rate type series" },
     in: { id: "INTDSRINM193N", kind: "levelMonthly", source: "FRED / discount or policy-rate type series" },
+  },
+};
+
+const ecbSeries = {
+  nominal10yYield: {
+    eu: {
+      flow: "FM",
+      key: "M.U2.EUR.4F.BB.U2_10Y.YLD",
+      kind: "levelMonthly",
+      source: "ECB Data Portal / Euro Area 10 Years Government Benchmark Bond - Yield",
+    },
   },
 };
 
@@ -183,10 +193,16 @@ const automatedSourceRegistry = {
     kr: { status: "manual-fixed-official", cadence: "annual", source: officialCpiSources.kr.source },
     in: { status: "active", cadence: "high-frequency", source: officialCpiSources.in.source },
   },
-  nominal10yYield: Object.fromEntries(Object.entries(fredSeries.nominal10yYield).map(([economy, config]) => [
-    economy,
-    { status: "active", cadence: "high-frequency", source: `${config.source} (${config.id})` },
-  ])),
+  nominal10yYield: Object.fromEntries([
+    ...Object.entries(fredSeries.nominal10yYield).map(([economy, config]) => [
+      economy,
+      { status: "active", cadence: "high-frequency", source: `${config.source} (${config.id})` },
+    ]),
+    ...Object.entries(ecbSeries.nominal10yYield).map(([economy, config]) => [
+      economy,
+      { status: "active", cadence: "high-frequency", source: `${config.source} (${config.flow}.${config.key})` },
+    ]),
+  ]),
   caGdp: Object.fromEntries(Object.entries(currentAccountGdpOverrides).map(([economy, config]) => [
     economy,
     { status: "manual-fixed-official", cadence: "annual", source: config.source },
@@ -374,6 +390,34 @@ const fetchFredObservations = async (apiKey, seriesId) => {
   return valueByDate(payload.observations ?? []);
 };
 
+const fetchEcbObservations = async (flow, key) => {
+  const url = new URL(`https://data-api.ecb.europa.eu/service/data/${flow}/${key}`);
+  url.searchParams.set("startPeriod", `${START_YEAR}-01-01`);
+  url.searchParams.set("endPeriod", `${currentYear}-12-31`);
+  url.searchParams.set("format", "jsondata");
+  const response = await fetch(url, {
+    headers: {
+      accept: "application/json",
+      "user-agent": "fx-stress-model-recent-refresh/1.0",
+    },
+  });
+  if (!response.ok) throw new Error(`${flow}.${key}: ${response.status} ${response.statusText}`);
+  const payload = await response.json();
+  const periodValues = payload?.structure?.dimensions?.observation
+    ?.find((dimension) => dimension.id === "TIME_PERIOD")?.values ?? [];
+  const series = Object.values(payload?.dataSets?.[0]?.series ?? {})[0];
+  const observations = series?.observations ?? {};
+  return Object.entries(observations)
+    .map(([index, observation]) => {
+      const period = periodValues[Number(index)]?.id;
+      return {
+        date: period ? `${period.length === 7 ? period : period.slice(0, 7)}-01` : null,
+        value: Number(observation?.[0]),
+      };
+    })
+    .filter((entry) => entry.date && isFiniteNumber(entry.value));
+};
+
 const annualAverageFromMonthly = (entries) => {
   const buckets = new Map();
   for (const { date, value } of entries) {
@@ -416,6 +460,12 @@ const annualCpiYoyAverage = (entries) => {
 const seriesFromFred = async (apiKey, config) => {
   const observations = await fetchFredObservations(apiKey, config.id);
   if (config.kind === "cpiIndex") return annualCpiYoyAverage(observations);
+  if (config.kind === "levelMonthEnd") return annualAverageFromMonthEnd(observations);
+  return annualAverageFromMonthly(observations);
+};
+
+const seriesFromEcb = async (config) => {
+  const observations = await fetchEcbObservations(config.flow, config.key);
   if (config.kind === "levelMonthEnd") return annualAverageFromMonthEnd(observations);
   return annualAverageFromMonthly(observations);
 };
@@ -835,6 +885,18 @@ const main = async () => {
         }
       } catch (error) {
         errors.push({ metric, economy, source: `${config.source} (${config.id})`, message: error.message });
+      }
+    }
+  }
+
+  for (const [metric, economies] of Object.entries(ecbSeries)) {
+    for (const [economy, config] of Object.entries(economies)) {
+      const sourceLabel = `${config.source} (${config.flow}.${config.key})`;
+      try {
+        const annual = await seriesFromEcb(config);
+        setSeriesValues({ years, stressData, metric, economy, annual, source: sourceLabel, changes, errors, previewPoints });
+      } catch (error) {
+        errors.push({ metric, economy, source: sourceLabel, message: error.message });
       }
     }
   }
