@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-04T04:29:32.063Z",
-  "lastUpdatedDate": "2026-07-04",
+  "generatedAt": "2026-07-05T04:52:08.956Z",
+  "lastUpdatedDate": "2026-07-05",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -1993,7 +1993,7 @@
       "metric": "nominal10yYield",
       "economy": "eu",
       "year": "2026",
-      "value": 3.3484,
+      "value": 3.3487,
       "status": "rolling-current-year",
       "observations": 6,
       "latestObservation": "2026-06-01",
