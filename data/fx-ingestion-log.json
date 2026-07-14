@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-12T04:21:32.776Z",
-  "lastUpdatedDate": "2026-07-12",
+  "generatedAt": "2026-07-14T03:52:42.377Z",
+  "lastUpdatedDate": "2026-07-14",
   "policyVersion": "2026-05-26.2",
   "archivedThroughYear": "2025",
   "autoRefreshYears": [
@@ -70,5 +70,162 @@
       "note": "EUR proxy before 1999 uses Deutsche Mark because DE/EA macro data before 1999 uses Germany proxy. Official fixed conversion: 1 EUR = 1.95583 DEM. Years after 2025 use FRED observed-rate annual/YTD averages until World Bank annual values are published."
     }
   },
-  "changes": []
+  "changes": [
+    {
+      "pair": "eurgbp",
+      "year": "2026",
+      "oldValue": 0.867,
+      "newValue": 0.8665
+    },
+    {
+      "pair": "eurusd",
+      "year": "2026",
+      "oldValue": 1.1662,
+      "newValue": 1.1653
+    },
+    {
+      "pair": "eurcny",
+      "year": "2026",
+      "oldValue": 8.0009,
+      "newValue": 7.9916
+    },
+    {
+      "pair": "eurjpy",
+      "year": "2026",
+      "oldValue": 184.4679,
+      "newValue": 184.4943
+    },
+    {
+      "pair": "eurtwd",
+      "year": "2026",
+      "oldValue": 36.8747,
+      "newValue": 36.8676
+    },
+    {
+      "pair": "eurkrw",
+      "year": "2026",
+      "oldValue": 1730.2334,
+      "newValue": 1730.1707
+    },
+    {
+      "pair": "eurinr",
+      "year": "2026",
+      "oldValue": 108.58,
+      "newValue": 108.5923
+    },
+    {
+      "pair": "gbpusd",
+      "year": "2026",
+      "oldValue": 1.3451,
+      "newValue": 1.3449
+    },
+    {
+      "pair": "gbpcny",
+      "year": "2026",
+      "oldValue": 9.2283,
+      "newValue": 9.2231
+    },
+    {
+      "pair": "gbpjpy",
+      "year": "2026",
+      "oldValue": 212.7685,
+      "newValue": 212.9254
+    },
+    {
+      "pair": "gbptwd",
+      "year": "2026",
+      "oldValue": 42.532,
+      "newValue": 42.549
+    },
+    {
+      "pair": "gbpkrw",
+      "year": "2026",
+      "oldValue": 1995.6805,
+      "newValue": 1996.7955
+    },
+    {
+      "pair": "gbpinr",
+      "year": "2026",
+      "oldValue": 125.238,
+      "newValue": 125.3267
+    },
+    {
+      "pair": "usdcny",
+      "year": "2026",
+      "oldValue": 6.8606,
+      "newValue": 6.8579
+    },
+    {
+      "pair": "usdjpy",
+      "year": "2026",
+      "oldValue": 158.177,
+      "newValue": 158.3228
+    },
+    {
+      "pair": "usdtwd",
+      "year": "2026",
+      "oldValue": 31.6193,
+      "newValue": 31.6377
+    },
+    {
+      "pair": "usdkrw",
+      "year": "2026",
+      "oldValue": 1483.6355,
+      "newValue": 1484.7369
+    },
+    {
+      "pair": "usdinr",
+      "year": "2026",
+      "oldValue": 93.1048,
+      "newValue": 93.1879
+    },
+    {
+      "pair": "cnyjpy",
+      "year": "2026",
+      "oldValue": 23.056,
+      "newValue": 23.0861
+    },
+    {
+      "pair": "cnytwd",
+      "year": "2026",
+      "oldValue": 4.6088,
+      "newValue": 4.6133
+    },
+    {
+      "pair": "cnykrw",
+      "year": "2026",
+      "oldValue": 216.2559,
+      "newValue": 216.4997
+    },
+    {
+      "pair": "cnyinr",
+      "year": "2026",
+      "oldValue": 13.571,
+      "newValue": 13.5884
+    },
+    {
+      "pair": "jpytwd",
+      "year": "2026",
+      "oldValue": 0.1999,
+      "newValue": 0.1998
+    },
+    {
+      "pair": "jpykrw",
+      "year": "2026",
+      "oldValue": 9.3796,
+      "newValue": 9.3779
+    },
+    {
+      "pair": "twdkrw",
+      "year": "2026",
+      "oldValue": 46.9219,
+      "newValue": 46.9294
+    },
+    {
+      "pair": "twdinr",
+      "year": "2026",
+      "oldValue": 2.9446,
+      "newValue": 2.9455
+    }
+  ]
 }
