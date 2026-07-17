@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-07-16T03:56:48.009Z",
-  "lastUpdatedDate": "2026-07-16",
+  "generatedAt": "2026-07-17T03:57:41.670Z",
+  "lastUpdatedDate": "2026-07-17",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -2003,10 +2003,10 @@
       "metric": "nominal10yYield",
       "economy": "gb",
       "year": "2026",
-      "value": 4.6693,
+      "value": 4.6904,
       "status": "rolling-current-year",
-      "observations": 5,
-      "latestObservation": "2026-05-01",
+      "observations": 6,
+      "latestObservation": "2026-06-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01GBM156N)"
     },
     {
@@ -2023,30 +2023,30 @@
       "metric": "nominal10yYield",
       "economy": "jp",
       "year": "2026",
-      "value": 2.372,
+      "value": 2.4217,
       "status": "rolling-current-year",
-      "observations": 5,
-      "latestObservation": "2026-05-01",
+      "observations": 6,
+      "latestObservation": "2026-06-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01JPM156N)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "kr",
       "year": "2026",
-      "value": 3.7274,
+      "value": 3.803,
       "status": "rolling-current-year",
-      "observations": 5,
-      "latestObservation": "2026-05-01",
+      "observations": 6,
+      "latestObservation": "2026-06-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01KRM156N)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.3429,
+      "value": 4.3386,
       "status": "rolling-current-year",
       "observations": 7,
-      "latestObservation": "2026-07-14",
+      "latestObservation": "2026-07-15",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
