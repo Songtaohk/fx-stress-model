@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-01T04:16:57.442Z",
-  "lastUpdatedDate": "2026-08-01",
+  "generatedAt": "2026-08-02T04:22:40.940Z",
+  "lastUpdatedDate": "2026-08-02",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -1993,10 +1993,10 @@
       "metric": "nominal10yYield",
       "economy": "eu",
       "year": "2026",
-      "value": 3.3487,
+      "value": 3.3787,
       "status": "rolling-current-year",
-      "observations": 6,
-      "latestObservation": "2026-06-01",
+      "observations": 7,
+      "latestObservation": "2026-07-01",
       "source": "ECB Data Portal / Euro Area 10 Years Government Benchmark Bond - Yield (FM.M.U2.EUR.4F.BB.U2_10Y.YLD)"
     },
     {
