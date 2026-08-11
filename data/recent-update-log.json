@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-08-10T03:07:56.742Z",
-  "lastUpdatedDate": "2026-08-10",
+  "generatedAt": "2026-08-11T03:02:29.568Z",
+  "lastUpdatedDate": "2026-08-11",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -2043,10 +2043,10 @@
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.4075,
+      "value": 4.4025,
       "status": "rolling-current-year",
       "observations": 8,
-      "latestObservation": "2026-08-06",
+      "latestObservation": "2026-08-07",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
