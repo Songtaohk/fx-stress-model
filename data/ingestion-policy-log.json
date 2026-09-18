@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-09-17T05:38:35.840Z",
-  "lastUpdatedDate": "2026-09-17",
+  "generatedAt": "2026-09-18T05:26:41.303Z",
+  "lastUpdatedDate": "2026-09-18",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -1963,10 +1963,10 @@
       "metric": "cpiInflation",
       "economy": "eu",
       "year": "2026",
-      "value": 2.5495,
+      "value": 2.6341,
       "status": "rolling-current-year",
-      "observations": 7,
-      "latestObservation": "2026-07-01",
+      "observations": 8,
+      "latestObservation": "2026-08-01",
       "source": "FRED / Eurostat HICP all-items index (CP0000EZ19M086NEST)"
     },
     {
@@ -2043,10 +2043,10 @@
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.48,
+      "value": 4.4811,
       "status": "rolling-current-year",
       "observations": 9,
-      "latestObservation": "2026-09-15",
+      "latestObservation": "2026-09-16",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
