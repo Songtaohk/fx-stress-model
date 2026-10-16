@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-15T05:26:20.894Z",
-  "lastUpdatedDate": "2026-10-15",
+  "generatedAt": "2026-10-16T05:19:25.274Z",
+  "lastUpdatedDate": "2026-10-16",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
@@ -2003,50 +2003,50 @@
       "metric": "nominal10yYield",
       "economy": "gb",
       "year": "2026",
-      "value": 4.7579,
+      "value": 4.8117,
       "status": "rolling-current-year",
-      "observations": 8,
-      "latestObservation": "2026-08-01",
+      "observations": 9,
+      "latestObservation": "2026-09-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01GBM156N)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "in",
       "year": "2026",
-      "value": 6.8689,
+      "value": 6.8869,
       "status": "rolling-current-year",
-      "observations": 7,
-      "latestObservation": "2026-07-01",
+      "observations": 9,
+      "latestObservation": "2026-09-01",
       "source": "FRED / OECD long-term government bond yield (INDIRLTLT01STM)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "jp",
       "year": "2026",
-      "value": 2.5325,
+      "value": 2.59,
       "status": "rolling-current-year",
-      "observations": 8,
-      "latestObservation": "2026-08-01",
+      "observations": 9,
+      "latestObservation": "2026-09-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01JPM156N)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "kr",
       "year": "2026",
-      "value": 3.9238,
+      "value": 3.9827,
       "status": "rolling-current-year",
-      "observations": 8,
-      "latestObservation": "2026-08-01",
+      "observations": 9,
+      "latestObservation": "2026-09-01",
       "source": "FRED / OECD long-term government bond yield (IRLTLT01KRM156N)"
     },
     {
       "metric": "nominal10yYield",
       "economy": "us",
       "year": "2026",
-      "value": 4.582,
+      "value": 4.58,
       "status": "rolling-current-year",
       "observations": 10,
-      "latestObservation": "2026-10-13",
+      "latestObservation": "2026-10-14",
       "source": "FRED / U.S. Treasury 10Y daily yield, month-end sampled (DGS10)"
     }
   ]
