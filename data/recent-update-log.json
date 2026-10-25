@@ -1,6 +1,6 @@
 {
-  "generatedAt": "2026-10-24T05:16:26.882Z",
-  "lastUpdatedDate": "2026-10-24",
+  "generatedAt": "2026-10-25T05:33:15.492Z",
+  "lastUpdatedDate": "2026-10-25",
   "policyVersion": "2026-05-26.2",
   "policy": {
     "archivedYears": "A value at or before each metric/economy archived cutoff is treated as historical and is not rewritten by automatic refresh scripts, except years explicitly tracked as provisional.",
